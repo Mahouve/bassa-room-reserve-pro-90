@@ -24,13 +24,14 @@ export const useSupabaseStatus = () => {
       
       // Get Supabase version info (not available in JS client directly, this is a workaround)
       try {
-        // Explicitly type as unknown first, then convert to string
+        // Using a different approach to get version info
         const response = await supabase.rpc('version');
-        const versionData = response.data;
-        
-        if (versionData !== null) {
-          // Convert to string regardless of the actual type
-          setVersion(String(versionData));
+        if (response.error) {
+          console.log('Version info not available:', response.error);
+          setVersion('Unknown');
+        } else {
+          // Safely convert to string
+          setVersion(response.data ? String(response.data) : 'Unknown');
         }
       } catch (versionErr: any) {
         console.log('Version info not available:', versionErr);

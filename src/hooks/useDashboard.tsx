@@ -2,16 +2,16 @@
 import { useState, useEffect } from 'react';
 import { DashboardStats } from '@/types';
 
-// Sample data for demonstration
-const MOCK_STATS: DashboardStats = {
-  total_reservations: 42,
-  taux_occupation: 68,
-  revenus_totaux: 3250000,
+// Données vides pour réinitialiser le tableau de bord
+const EMPTY_STATS: DashboardStats = {
+  total_reservations: 0,
+  taux_occupation: 0,
+  revenus_totaux: 0,
   stats_utilisateurs: {
-    total: 120,
-    perenco: 80,
-    contractuels: 30,
-    parraines: 10
+    total: 0,
+    perenco: 0,
+    contractuels: 0,
+    parraines: 0
   }
 };
 
@@ -23,7 +23,7 @@ interface DashboardHook {
 }
 
 export const useDashboard = (): DashboardHook => {
-  const [stats, setStats] = useState<DashboardStats>(MOCK_STATS);
+  const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
   const [loading, setLoading] = useState<boolean>(false);
 
   const getStatsForPeriod = async (startDate: Date, endDate: Date): Promise<DashboardStats> => {
@@ -32,27 +32,11 @@ export const useDashboard = (): DashboardHook => {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // In a real app, this would fetch stats for the specified period
-    // For demo purposes, we'll generate some randomized stats
-    const randomStat = (base: number, variance: number) => {
-      return Math.floor(base * (1 + (Math.random() - 0.5) * variance));
-    };
+    // Return empty stats - we're resetting all data
+    setStats(EMPTY_STATS);
     
-    const periodStats: DashboardStats = {
-      total_reservations: randomStat(MOCK_STATS.total_reservations, 0.3),
-      taux_occupation: Math.min(100, Math.max(0, randomStat(MOCK_STATS.taux_occupation, 0.2))),
-      revenus_totaux: randomStat(MOCK_STATS.revenus_totaux, 0.25),
-      stats_utilisateurs: {
-        total: randomStat(MOCK_STATS.stats_utilisateurs.total, 0.1),
-        perenco: randomStat(MOCK_STATS.stats_utilisateurs.perenco, 0.15),
-        contractuels: randomStat(MOCK_STATS.stats_utilisateurs.contractuels, 0.2),
-        parraines: randomStat(MOCK_STATS.stats_utilisateurs.parraines, 0.3)
-      }
-    };
-    
-    setStats(periodStats);
     setLoading(false);
-    return periodStats;
+    return EMPTY_STATS;
   };
 
   const generateReport = async (format: 'pdf' | 'excel'): Promise<string> => {

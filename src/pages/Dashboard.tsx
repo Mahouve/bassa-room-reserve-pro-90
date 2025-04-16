@@ -29,39 +29,25 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-const generateReservationData = () => {
-  const data = [];
-  const today = new Date();
-  
-  for (let i = 0; i < 10; i++) {
-    const date = subDays(today, i);
-    data.unshift({
-      name: format(date, 'dd/MM', { locale: fr }),
-      total: Math.floor(Math.random() * 5) + 1,
-      perenco: Math.floor(Math.random() * 3) + 1,
-      parraine: Math.floor(Math.random() * 2),
-      contractuel: Math.floor(Math.random() * 1),
-    });
-  }
-  return data;
-};
+// Données graphiques vides
+const emptyReservationData = Array(10).fill(null).map((_, i) => {
+  const date = subDays(new Date(), i);
+  return {
+    name: format(date, 'dd/MM', { locale: fr }),
+    total: 0,
+    perenco: 0,
+    parraine: 0,
+    contractuel: 0,
+  };
+});
 
-const generateRevenueData = () => {
-  const data = [];
-  const today = new Date();
-  
-  for (let i = 0; i < 7; i++) {
-    const date = subDays(today, i * 30);
-    data.unshift({
-      name: format(date, 'MMM', { locale: fr }),
-      total: Math.floor(Math.random() * 1500000) + 300000,
-    });
-  }
-  return data;
-};
-
-const reservationData = generateReservationData();
-const revenueData = generateRevenueData();
+const emptyRevenueData = Array(7).fill(null).map((_, i) => {
+  const date = subDays(new Date(), i * 30);
+  return {
+    name: format(date, 'MMM', { locale: fr }),
+    total: 0,
+  };
+});
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -74,6 +60,10 @@ const Dashboard: React.FC = () => {
     pdf: false,
     excel: false
   });
+  
+  // Utiliser les données vides
+  const [reservationData, setReservationData] = useState(emptyReservationData);
+  const [revenueData, setRevenueData] = useState(emptyRevenueData);
 
   const isAdmin = user?.role === 'admin';
   const isManager = user?.role === 'manager';
@@ -91,10 +81,9 @@ const Dashboard: React.FC = () => {
     loadData();
   }, []);
 
+  // Retourne toujours un changement de 0%
   const getMetricChange = () => {
-    return Math.random() > 0.5 ? 
-      { value: `+${Math.floor(Math.random() * 10)}%`, trend: 'up' } : 
-      { value: `-${Math.floor(Math.random() * 5)}%`, trend: 'down' };
+    return { value: `0%`, trend: 'up' };
   };
 
   const handleGenerateReport = async (format: 'pdf' | 'excel') => {
@@ -389,7 +378,7 @@ const Dashboard: React.FC = () => {
                   <div className="mt-3 w-full bg-gray-200 h-1.5 rounded-full">
                     <div 
                       className="bg-blue-600 h-1.5 rounded-full transition-all duration-700 ease-in-out" 
-                      style={{ width: `${(stats.stats_utilisateurs.perenco / stats.stats_utilisateurs.total) * 100}%` }}
+                      style={{ width: `${stats.stats_utilisateurs.perenco > 0 ? (stats.stats_utilisateurs.perenco / stats.stats_utilisateurs.total) * 100 : 0}%` }}
                     ></div>
                   </div>
                 </div>
@@ -401,7 +390,7 @@ const Dashboard: React.FC = () => {
                   <div className="mt-3 w-full bg-gray-200 h-1.5 rounded-full">
                     <div 
                       className="bg-green-600 h-1.5 rounded-full transition-all duration-700 ease-in-out" 
-                      style={{ width: `${(stats.stats_utilisateurs.contractuels / stats.stats_utilisateurs.total) * 100}%` }}
+                      style={{ width: `${stats.stats_utilisateurs.contractuels > 0 ? (stats.stats_utilisateurs.contractuels / stats.stats_utilisateurs.total) * 100 : 0}%` }}
                     ></div>
                   </div>
                 </div>
@@ -413,7 +402,7 @@ const Dashboard: React.FC = () => {
                   <div className="mt-3 w-full bg-gray-200 h-1.5 rounded-full">
                     <div 
                       className="bg-yellow-600 h-1.5 rounded-full transition-all duration-700 ease-in-out" 
-                      style={{ width: `${(stats.stats_utilisateurs.parraines / stats.stats_utilisateurs.total) * 100}%` }}
+                      style={{ width: `${stats.stats_utilisateurs.parraines > 0 ? (stats.stats_utilisateurs.parraines / stats.stats_utilisateurs.total) * 100 : 0}%` }}
                     ></div>
                   </div>
                 </div>
