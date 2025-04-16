@@ -1,11 +1,31 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSupabaseStatus } from '@/hooks/useSupabaseStatus';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Loader } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const SupabaseStatus: React.FC = () => {
-  const { isConnected, loading, error } = useSupabaseStatus();
+  const { isConnected, loading, error, refetch } = useSupabaseStatus();
+
+  // Set up realtime subscription to refresh status when data changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public' },
+        () => {
+          // Refresh the status when any database change occurs
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch]);
 
   if (loading) {
     return (

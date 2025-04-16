@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useSupabaseStatus = () => {
@@ -8,45 +8,53 @@ export const useSupabaseStatus = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        setLoading(true);
-        
-        // Perform a simple query to check if Supabase is connected
-        const { data, error } = await supabase.from('profiles').select('count').limit(1);
-        
-        if (error) {
-          throw new Error(error.message);
-        }
-        
-        // If we get here, we're connected
-        setIsConnected(true);
-        
-        // Get Supabase version info (not available in JS client directly, this is a workaround)
-        try {
-          // Use any type for version data to handle unknown response format
-          const { data: versionData }: { data: any } = await supabase.rpc('version');
-          if (versionData) {
-            // Convert to string regardless of the actual type
-            setVersion(String(versionData));
-          }
-        } catch (versionErr: any) {
-          console.log('Version info not available:', versionErr);
-          setVersion('Unknown');
-        }
-        
-      } catch (err: any) {
-        console.error('Supabase connection error:', err);
-        setIsConnected(false);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+  const checkConnection = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Perform a simple query to check if Supabase is connected
+      const { data, error } = await supabase.from('profiles').select('count').limit(1);
+      
+      if (error) {
+        throw new Error(error.message);
       }
-    };
-
-    checkConnection();
+      
+      // If we get here, we're connected
+      setIsConnected(true);
+      
+      // Get Supabase version info (not available in JS client directly, this is a workaround)
+      try {
+        // Explicitly type as unknown first, then convert to string
+        const response = await supabase.rpc('version');
+        const versionData = response.data;
+        
+        if (versionData !== null) {
+          // Convert to string regardless of the actual type
+          setVersion(String(versionData));
+        }
+      } catch (versionErr: any) {
+        console.log('Version info not available:', versionErr);
+        setVersion('Unknown');
+      }
+      
+    } catch (err: any) {
+      console.error('Supabase connection error:', err);
+      setIsConnected(false);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { isConnected, version, loading, error };
+  // Initial check
+  useEffect(() => {
+    checkConnection();
+  }, [checkConnection]);
+
+  // Provide a way to refresh the status
+  const refetch = useCallback(() => {
+    return checkConnection();
+  }, [checkConnection]);
+
+  return { isConnected, version, loading, error, refetch };
 };

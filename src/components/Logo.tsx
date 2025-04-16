@@ -10,9 +10,6 @@ const Logo: React.FC<{ className?: string }> = ({ className = "" }) => {
         alt="PERENCO Logo" 
         className="h-8" 
       />
-      <span className="ml-2 text-xl font-bold text-perenco-dark">
-        Foyer Bassa
-      </span>
     </div>
   );
 };
