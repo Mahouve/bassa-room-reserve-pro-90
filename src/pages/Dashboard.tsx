@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,14 +21,14 @@ import {
   ChevronDown,
   Activity,
   BarChart3,
-  CheckCircle2
+  CheckCircle2,
+  Loader
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-// Generate sample data for charts
 const generateReservationData = () => {
   const data = [];
   const today = new Date();
@@ -81,7 +80,6 @@ const Dashboard: React.FC = () => {
   const isAdminOrManager = isAdmin || isManager;
 
   useEffect(() => {
-    // Load real-time data from Supabase when dashboard mounts
     const loadData = async () => {
       try {
         await getStatsForPeriod(dateRange.from, dateRange.to);
@@ -93,9 +91,7 @@ const Dashboard: React.FC = () => {
     loadData();
   }, []);
 
-  // Function to determine if a metric has increased or decreased
   const getMetricChange = () => {
-    // Random for demo, in real app would calculate from actual data
     return Math.random() > 0.5 ? 
       { value: `+${Math.floor(Math.random() * 10)}%`, trend: 'up' } : 
       { value: `-${Math.floor(Math.random() * 5)}%`, trend: 'down' };
@@ -111,7 +107,6 @@ const Dashboard: React.FC = () => {
         description: `Votre rapport ${format.toUpperCase()} est prêt à être téléchargé.`,
       });
       
-      // In a real app, this would trigger a file download
       window.open(downloadUrl, '_blank');
     } catch (error) {
       toast({
@@ -164,7 +159,7 @@ const Dashboard: React.FC = () => {
                 className="hover-scale"
               >
                 {reportsLoading.pdf ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Download className="mr-2 h-4 w-4" />
                 )}
@@ -178,7 +173,7 @@ const Dashboard: React.FC = () => {
                 className="hover-scale"
               >
                 {reportsLoading.excel ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Download className="mr-2 h-4 w-4" />
                 )}
@@ -320,7 +315,6 @@ const Dashboard: React.FC = () => {
                       fill="#10B981" 
                       radius={[0, 0, 0, 0]}
                       animationDuration={1500}
-                      animationDelay={300}
                     />
                     <Bar 
                       dataKey="parraine" 
@@ -328,7 +322,6 @@ const Dashboard: React.FC = () => {
                       fill="#F59E0B" 
                       radius={[0, 0, 4, 4]}
                       animationDuration={1500}
-                      animationDelay={600}
                     />
                   </BarChart>
                 </ResponsiveContainer>
