@@ -25,8 +25,8 @@ export const useSupabaseStatus = () => {
         
         // Get Supabase version info (not available in JS client directly, this is a workaround)
         try {
-          // Explicitly type the response to avoid type errors
-          const { data: versionData } = await supabase.rpc('version') as { data: string | null };
+          // Use any type for version data to handle unknown response format
+          const { data: versionData }: { data: any } = await supabase.rpc('version');
           if (versionData) {
             // Convert to string regardless of the actual type
             setVersion(String(versionData));

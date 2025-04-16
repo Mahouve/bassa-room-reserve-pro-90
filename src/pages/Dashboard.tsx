@@ -159,11 +159,16 @@ const Dashboard: React.FC = () => {
                 className="hover-scale"
               >
                 {reportsLoading.pdf ? (
-                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  <>
+                    <Loader className="mr-2 h-4 w-4 animate-spin" />
+                    PDF en cours...
+                  </>
                 ) : (
-                  <Download className="mr-2 h-4 w-4" />
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    PDF
+                  </>
                 )}
-                PDF
               </Button>
               
               <Button 
@@ -173,11 +178,16 @@ const Dashboard: React.FC = () => {
                 className="hover-scale"
               >
                 {reportsLoading.excel ? (
-                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  <>
+                    <Loader className="mr-2 h-4 w-4 animate-spin" />
+                    Excel en cours...
+                  </>
                 ) : (
-                  <Download className="mr-2 h-4 w-4" />
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Excel
+                  </>
                 )}
-                Excel
               </Button>
             </div>
           )}

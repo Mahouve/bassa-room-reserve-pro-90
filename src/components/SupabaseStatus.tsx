@@ -2,7 +2,7 @@
 import React from 'react';
 import { useSupabaseStatus } from '@/hooks/useSupabaseStatus';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Loader2 } from 'lucide-react';
+import { Loader } from 'lucide-react';
 
 const SupabaseStatus: React.FC = () => {
   const { isConnected, loading, error } = useSupabaseStatus();
@@ -10,7 +10,7 @@ const SupabaseStatus: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-4 rounded-md bg-gray-50 border border-gray-200">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        <Loader className="mr-2 h-4 w-4 animate-spin" />
         <span>Checking Supabase connection...</span>
       </div>
     );
