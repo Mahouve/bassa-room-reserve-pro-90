@@ -29,7 +29,7 @@ const SupabaseStatus: React.FC = () => {
 
   if (isConnected) {
     return (
-      <Alert variant="success" className="bg-green-50 border-green-200 text-green-800">
+      <Alert variant="default" className="bg-green-50 border-green-200 text-green-800">
         <AlertTitle>Connected</AlertTitle>
         <AlertDescription>
           Successfully connected to Supabase project.
@@ -39,7 +39,7 @@ const SupabaseStatus: React.FC = () => {
   }
 
   return (
-    <Alert variant="warning" className="bg-amber-50 border-amber-200 text-amber-800">
+    <Alert variant="default" className="bg-amber-50 border-amber-200 text-amber-800">
       <AlertTitle>Connection Issue</AlertTitle>
       <AlertDescription>
         Unable to connect to Supabase. Please check your configuration.

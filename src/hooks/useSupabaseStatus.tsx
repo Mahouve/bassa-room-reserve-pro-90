@@ -24,9 +24,14 @@ export const useSupabaseStatus = () => {
         setIsConnected(true);
         
         // Get Supabase version info (not available in JS client directly, this is a workaround)
-        const { data: versionData } = await supabase.rpc('version');
-        if (versionData) {
-          setVersion(versionData);
+        try {
+          const { data: versionData } = await supabase.rpc('version');
+          if (versionData) {
+            setVersion(versionData as string);
+          }
+        } catch (versionErr) {
+          console.log('Version info not available:', versionErr);
+          setVersion('Unknown');
         }
         
       } catch (err: any) {
