@@ -25,8 +25,8 @@ export const useSupabaseStatus = () => {
       // Get Supabase version info (not available in JS client directly, this is a workaround)
       try {
         // Using a different approach to get version info
-        // Type issue: The rpc method needs to specify the return type
-        const response = await supabase.rpc('version', {}, { count: 'exact' });
+        // Fixing the TypeScript error by specifying the correct return type
+        const response = await supabase.rpc('version', {});
         if (response.error) {
           console.log('Version info not available:', response.error);
           setVersion('Unknown');

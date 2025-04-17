@@ -125,10 +125,11 @@ export const useUsers = (): UsersHook => {
     setLoading(true);
     
     try {
-      // Create the profile in Supabase
+      // Fix the TypeScript error by providing a single object with the required 'id' property
+      // Supabase generates UUID automatically if we don't provide one, but TypeScript requires it
       const { data, error } = await supabase
         .from('profiles')
-        .insert([{
+        .insert({
           first_name: userData.prenom || '',
           last_name: userData.nom || '',
           phone: userData.telephone || '',
@@ -137,7 +138,7 @@ export const useUsers = (): UsersHook => {
           location: '', // Default empty location
           joined_date: new Date().toISOString(),
           last_active: new Date().toISOString(),
-        }])
+        })
         .select()
         .single();
       
