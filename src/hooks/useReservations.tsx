@@ -139,6 +139,17 @@ export const useReservations = (user: User | null): ReservationsHook => {
         });
         return undefined;
       }
+
+      // Vérifier que l'utilisateur est bien connecté à Supabase
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        toast({
+          title: 'Erreur d\'authentification',
+          description: 'Votre session a expiré. Veuillez vous reconnecter.',
+          variant: 'destructive',
+        });
+        return undefined;
+      }
       
       const startDate = `${newReservation.date_reservation}T${newReservation.heure_debut}`;
       const endDate = `${newReservation.date_reservation}T${newReservation.heure_fin}`;
@@ -147,7 +158,7 @@ export const useReservations = (user: User | null): ReservationsHook => {
       const isAvailable = checkAvailability(newReservation);
       const status = isAvailable ? 'confirmed' : 'waitlist';
       
-      // Create reservation in Supabase
+      // Create reservation in Supabase with the user's authenticated session
       const { data, error } = await supabase
         .from('reservations')
         .insert({
@@ -157,7 +168,10 @@ export const useReservations = (user: User | null): ReservationsHook => {
           end_time: endDate,
           status: status,
           room_id: 'default', // You might want to make this dynamic in the future
-          description: `Équipements: ${selectedEquipments.map(e => `${e.id} (${e.quantity})`).join(', ')}`,
+          description: `Équipements: ${selectedEquipments.map(e => {
+            const equipment = MOCK_EQUIPMENTS.find(eq => eq.id === e.id);
+            return equipment ? `${equipment.nom} (${e.quantity})` : `${e.id} (${e.quantity})`;
+          }).join(', ')}`,
         })
         .select()
         .single();
