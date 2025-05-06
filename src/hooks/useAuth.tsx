@@ -1,43 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Role, User, UserStatus } from '@/types';
-
-// Sample users for demonstration
-const MOCK_USERS = [
-  {
-    id: '1',
-    nom: 'Admin',
-    prenom: 'User',
-    email: 'admin@perenco.com',
-    telephone: '+237612345678',
-    role: 'admin' as Role,
-    statut: 'PERENCO' as UserStatus,
-    password: 'admin123', // In a real app, this would be hashed
-    date_creation: '2023-01-01'
-  },
-  {
-    id: '2',
-    nom: 'Manager',
-    prenom: 'User',
-    email: 'manager@perenco.com',
-    telephone: '+237612345679',
-    role: 'manager' as Role,
-    statut: 'PERENCO' as UserStatus,
-    password: 'manager123', // In a real app, this would be hashed
-    date_creation: '2023-01-02'
-  },
-  {
-    id: '3',
-    nom: 'Normal',
-    prenom: 'User',
-    email: 'user@perenco.com',
-    telephone: '+237612345680',
-    role: 'utilisateur' as Role,
-    statut: 'PERENCO' as UserStatus,
-    password: 'user123', // In a real app, this would be hashed
-    date_creation: '2023-01-03'
-  },
-];
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -54,64 +19,219 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Check for saved authentication in localStorage
-    const savedUser = localStorage.getItem('perenco-user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    // Check for existing session on load
+    const checkSession = async () => {
+      setIsLoading(true);
+      
+      // Check if user is already signed in
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (session) {
+        // User is signed in, get their profile data
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+          
+        if (profile) {
+          // Map profile to our User type
+          const userData: User = {
+            id: profile.id,
+            nom: profile.last_name || '',
+            prenom: profile.first_name || '',
+            email: session.user.email || '',
+            telephone: profile.phone || '',
+            role: (profile.role as Role) || 'utilisateur',
+            statut: 'PERENCO' as UserStatus,
+            date_creation: profile.joined_date?.split('T')[0] || new Date().toISOString().split('T')[0],
+          };
+          
+          setUser(userData);
+        } else if (profileError) {
+          console.error('Error fetching user profile:', profileError);
+        }
+      }
+      
+      setIsLoading(false);
+    };
+    
+    checkSession();
+    
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          // Get user profile data
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (profile) {
+            // Map profile to our User type
+            const userData: User = {
+              id: profile.id,
+              nom: profile.last_name || '',
+              prenom: profile.first_name || '',
+              email: session.user.email || '',
+              telephone: profile.phone || '',
+              role: (profile.role as Role) || 'utilisateur',
+              statut: 'PERENCO' as UserStatus,
+              date_creation: profile.joined_date?.split('T')[0] || new Date().toISOString().split('T')[0],
+            };
+            
+            setUser(userData);
+          } else if (profileError) {
+            console.error('Error fetching user profile:', profileError);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+        }
+      }
+    );
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Find user with matching email and password
-    const foundUser = MOCK_USERS.find(u => 
-      u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    );
-    
-    if (foundUser) {
-      // Remove password before storing user data
-      const { password: _, ...userWithoutPassword } = foundUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem('perenco-user', JSON.stringify(userWithoutPassword));
+    try {
+      // Attempt to sign in with Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        console.error('Login error:', error);
+        toast({
+          title: 'Échec de la connexion',
+          description: error.message,
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return false;
+      }
+      
+      // Successfully logged in, user data will be set by the auth state listener
+      toast({
+        title: 'Connexion réussie',
+        description: 'Bienvenue dans votre espace',
+      });
+      
       setIsLoading(false);
       return true;
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Une erreur est survenue lors de la connexion',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return false;
     }
-    
-    setIsLoading(false);
-    return false;
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('perenco-user');
+  const logout = async () => {
+    setIsLoading(true);
+    
+    try {
+      // Sign out with Supabase
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Logout error:', error);
+        toast({
+          title: 'Erreur',
+          description: 'Une erreur est survenue lors de la déconnexion',
+          variant: 'destructive',
+        });
+      } else {
+        // Successfully logged out
+        setUser(null);
+        toast({
+          title: 'Déconnexion réussie',
+        });
+      }
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Une erreur est survenue lors de la déconnexion',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const register = async (userData: Partial<User> & { password: string }) => {
     setIsLoading(true);
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Check if email already exists
-    const emailExists = MOCK_USERS.some(
-      u => u.email.toLowerCase() === userData.email?.toLowerCase()
-    );
-    
-    if (emailExists) {
+    try {
+      // Create new user with Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email: userData.email || '',
+        password: userData.password,
+      });
+      
+      if (error) {
+        console.error('Registration error:', error);
+        toast({
+          title: 'Échec de l\'inscription',
+          description: error.message,
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return false;
+      }
+      
+      if (data.user) {
+        // Create profile record for the new user
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            first_name: userData.prenom || '',
+            last_name: userData.nom || '',
+            phone: userData.telephone || '',
+            role: userData.role || 'utilisateur',
+            joined_date: new Date().toISOString(),
+          });
+          
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          toast({
+            title: 'Erreur de profil',
+            description: 'Compte créé mais erreur lors de la création du profil',
+            variant: 'destructive',
+          });
+        }
+        
+        toast({
+          title: 'Inscription réussie',
+          description: 'Votre compte a été créé avec succès',
+        });
+        
+        setIsLoading(false);
+        return true;
+      }
+      
+      setIsLoading(false);
+      return false;
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Une erreur est survenue lors de l\'inscription',
+        variant: 'destructive',
+      });
       setIsLoading(false);
       return false;
     }
-    
-    // In a real app, this would create a new user in the database
-    // For demo purposes, we'll just pretend it succeeded
-    
-    setIsLoading(false);
-    return true;
   };
 
   return (

@@ -65,7 +65,7 @@ const Login = () => {
           <Logo className="mx-auto" />
         </div>
 
-        {/* Supabase Connection Status - New Component */}
+        {/* Supabase Connection Status */}
         <div className="mb-6">
           <SupabaseStatus />
         </div>

@@ -20,6 +20,7 @@ export const useUserOperations = (): UserOperationsHook => {
     setLoading(true);
     
     try {
+      // Fix: Remove the id field as Supabase will generate it
       const { data, error } = await supabase
         .from('profiles')
         .insert({

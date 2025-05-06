@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { User, Sponsorship } from '@/types';
+import { User, Sponsorship, Role } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
@@ -43,7 +43,7 @@ export const useUserData = (): UserDataHook => {
           prenom: profile.first_name || '',
           email: profile.id, // Using ID as email for demo
           telephone: profile.phone || '',
-          role: profile.role || 'utilisateur',
+          role: (profile.role as Role) || 'utilisateur',
           statut: 'PERENCO', // Default status
           date_creation: profile.joined_date || new Date().toISOString().split('T')[0],
         }));
