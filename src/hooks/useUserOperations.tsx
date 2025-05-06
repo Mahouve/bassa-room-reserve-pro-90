@@ -20,10 +20,13 @@ export const useUserOperations = (): UserOperationsHook => {
     setLoading(true);
     
     try {
-      // Fix: Remove the id field as Supabase will generate it
+      // Generate a UUID for the user if not provided
+      const userId = userData.id || crypto.randomUUID();
+      
       const { data, error } = await supabase
         .from('profiles')
         .insert({
+          id: userId, // Include the ID field which is required
           first_name: userData.prenom || '',
           last_name: userData.nom || '',
           phone: userData.telephone || '',

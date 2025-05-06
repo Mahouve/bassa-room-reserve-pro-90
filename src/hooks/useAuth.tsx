@@ -6,7 +6,7 @@ import { toast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{success: boolean, message?: string}>;
   logout: () => void;
   register: (userData: Partial<User> & { password: string }) => Promise<boolean>;
   isLoading: boolean;
@@ -106,32 +106,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
         console.error('Login error:', error);
-        toast({
-          title: 'Échec de la connexion',
-          description: error.message,
-          variant: 'destructive',
-        });
+        
+        let errorMessage = 'Identifiants invalides';
+        if (error.message === 'Email not confirmed') {
+          errorMessage = 'Email non confirmé. Veuillez vérifier votre boîte de réception.';
+        } else if (error.message === 'Invalid login credentials') {
+          errorMessage = 'Email ou mot de passe incorrect';
+        }
+        
         setIsLoading(false);
-        return false;
+        return { success: false, message: errorMessage };
       }
       
       // Successfully logged in, user data will be set by the auth state listener
-      toast({
-        title: 'Connexion réussie',
-        description: 'Bienvenue dans votre espace',
-      });
-      
       setIsLoading(false);
-      return true;
+      return { success: true };
     } catch (error: any) {
       console.error('Login error:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Une erreur est survenue lors de la connexion',
-        variant: 'destructive',
-      });
       setIsLoading(false);
-      return false;
+      return { success: false, message: 'Une erreur est survenue lors de la connexion' };
     }
   };
 

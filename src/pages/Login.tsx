@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const loginSchema = z.object({
   email: z.string().email('Veuillez entrer un email valide'),
@@ -23,6 +24,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 const Login = () => {
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -33,8 +35,11 @@ const Login = () => {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
+    setErrorMessage(null);
     try {
-      const success = await login(data.email, data.password);
+      console.log("Tentative de connexion avec:", data.email);
+      const { success, message } = await login(data.email, data.password);
+      
       if (success) {
         toast({
           title: 'Connexion réussie',
@@ -42,14 +47,16 @@ const Login = () => {
         });
         navigate('/dashboard');
       } else {
+        setErrorMessage(message || 'Email ou mot de passe incorrect');
         toast({
           variant: 'destructive',
           title: 'Échec de la connexion',
-          description: 'Email ou mot de passe incorrect',
+          description: message || 'Email ou mot de passe incorrect',
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
+      setErrorMessage(error.message || 'Une erreur est survenue lors de la connexion');
       toast({
         variant: 'destructive',
         title: 'Erreur',
@@ -78,6 +85,12 @@ const Login = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {errorMessage && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
+            
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
