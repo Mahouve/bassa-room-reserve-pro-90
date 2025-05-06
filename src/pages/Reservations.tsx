@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/hooks/useAuth';
 import { useReservations } from '@/hooks/useReservations';
@@ -18,11 +18,20 @@ import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, addDays, parse } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { CalendarRange, Clock, CreditCard, FileText, Info, Loader2, Video, X } from 'lucide-react';
+import { CalendarRange, Clock, CreditCard, FileText, Info, Loader2, RefreshCw, Video, X } from 'lucide-react';
 
 const Reservations: React.FC = () => {
   const { user } = useAuth();
-  const { reservations, userReservations, loading, createReservation, updateReservationStatus, getAvailableSlots, getEquipments } = useReservations(user);
+  const { 
+    reservations, 
+    userReservations, 
+    loading, 
+    fetchReservations,
+    createReservation, 
+    updateReservationStatus, 
+    getAvailableSlots, 
+    getEquipments 
+  } = useReservations(user);
   const { generateDevis } = usePayments();
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -32,6 +41,7 @@ const Reservations: React.FC = () => {
   const [selectedEquipments, setSelectedEquipments] = useState<{id: string, quantity: number}[]>([]);
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const isAdmin = user?.role === 'admin';
   const isManager = user?.role === 'manager';
@@ -51,7 +61,7 @@ const Reservations: React.FC = () => {
       setAvailableSlots(slots);
       setSelectedSlot(null);
     }
-  }, [selectedDate]);
+  }, [selectedDate, reservations]);
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
@@ -104,7 +114,7 @@ const Reservations: React.FC = () => {
         selectedEquipments
       );
       
-      // Generate devis
+      // Generate devis if reservation was created
       if (newReservation) {
         await generateDevis(newReservation.id, selectedEquipments);
       }
@@ -130,6 +140,16 @@ const Reservations: React.FC = () => {
     };
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchReservations();
+    setRefreshing(false);
+  };
+
+  const handleStatusChange = async (id: string, newStatus: 'confirmée' | 'annulée' | 'en attente') => {
+    await updateReservationStatus(id, newStatus);
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -139,125 +159,136 @@ const Reservations: React.FC = () => {
             <p className="text-muted-foreground">Gérez vos réservations du Foyer Bassa</p>
           </div>
           
-          <Dialog open={reservationDialogOpen} onOpenChange={setReservationDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-perenco-accent hover:bg-perenco-accent/90">
-                Nouvelle réservation
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Nouvelle réservation</DialogTitle>
-                <DialogDescription>
-                  Réservez une salle au Foyer Bassa pour votre événement.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label>Date de réservation</Label>
-                  <div className="border rounded-md p-4">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={handleDateSelect}
-                      disabled={(date) => date < new Date()}
-                      className="mx-auto"
-                    />
-                  </div>
-                </div>
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </Button>
+            
+            <Dialog open={reservationDialogOpen} onOpenChange={setReservationDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-perenco-accent hover:bg-perenco-accent/90">
+                  Nouvelle réservation
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Nouvelle réservation</DialogTitle>
+                  <DialogDescription>
+                    Réservez une salle au Foyer Bassa pour votre événement.
+                  </DialogDescription>
+                </DialogHeader>
                 
-                <div className="grid gap-2">
-                  <Label>Créneaux disponibles</Label>
-                  {availableSlots.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-2">
-                      {availableSlots.map((slot, index) => (
-                        <Button
-                          key={index}
-                          variant={selectedSlot === slot ? "default" : "outline"}
-                          className="justify-start"
-                          onClick={() => handleSlotSelect(slot)}
-                        >
-                          <Clock className="mr-2 h-4 w-4" />
-                          <span>{slot.start} - {slot.end}</span>
-                        </Button>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label>Date de réservation</Label>
+                    <div className="border rounded-md p-4">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={handleDateSelect}
+                        disabled={(date) => date < new Date()}
+                        className="mx-auto"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label>Créneaux disponibles</Label>
+                    {availableSlots.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-2">
+                        {availableSlots.map((slot, index) => (
+                          <Button
+                            key={index}
+                            variant={selectedSlot === slot ? "default" : "outline"}
+                            className="justify-start"
+                            onClick={() => handleSlotSelect(slot)}
+                          >
+                            <Clock className="mr-2 h-4 w-4" />
+                            <span>{slot.start} - {slot.end}</span>
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center p-4 border rounded-md bg-yellow-50 text-yellow-800">
+                        <Info className="h-5 w-5 mx-auto mb-2" />
+                        <p>Aucun créneau disponible à cette date.</p>
+                        <p className="text-sm">Veuillez sélectionner une autre date.</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label>Équipements (optionnel)</Label>
+                    <div className="border rounded-md p-4 space-y-4 max-h-[200px] overflow-y-auto">
+                      {equipments.map((equipment) => (
+                        <div key={equipment.id} className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{equipment.nom}</p>
+                            <p className="text-sm text-muted-foreground">{equipment.description}</p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                const current = selectedEquipments.find(eq => eq.id === equipment.id)?.quantity || 0;
+                                if (current > 0) {
+                                  handleEquipmentChange(equipment.id, current - 1);
+                                }
+                              }}
+                            >
+                              -
+                            </Button>
+                            <span className="w-8 text-center">
+                              {selectedEquipments.find(eq => eq.id === equipment.id)?.quantity || 0}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                const current = selectedEquipments.find(eq => eq.id === equipment.id)?.quantity || 0;
+                                if (current < equipment.quantite_totale) {
+                                  handleEquipmentChange(equipment.id, current + 1);
+                                }
+                              }}
+                            >
+                              +
+                            </Button>
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  ) : (
-                    <div className="text-center p-4 border rounded-md bg-yellow-50 text-yellow-800">
-                      <Info className="h-5 w-5 mx-auto mb-2" />
-                      <p>Aucun créneau disponible à cette date.</p>
-                      <p className="text-sm">Veuillez sélectionner une autre date.</p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="grid gap-2">
-                  <Label>Équipements (optionnel)</Label>
-                  <div className="border rounded-md p-4 space-y-4 max-h-[200px] overflow-y-auto">
-                    {equipments.map((equipment) => (
-                      <div key={equipment.id} className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{equipment.nom}</p>
-                          <p className="text-sm text-muted-foreground">{equipment.description}</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 w-8 p-0"
-                            onClick={() => {
-                              const current = selectedEquipments.find(eq => eq.id === equipment.id)?.quantity || 0;
-                              if (current > 0) {
-                                handleEquipmentChange(equipment.id, current - 1);
-                              }
-                            }}
-                          >
-                            -
-                          </Button>
-                          <span className="w-8 text-center">
-                            {selectedEquipments.find(eq => eq.id === equipment.id)?.quantity || 0}
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 w-8 p-0"
-                            onClick={() => {
-                              const current = selectedEquipments.find(eq => eq.id === equipment.id)?.quantity || 0;
-                              if (current < equipment.quantite_totale) {
-                                handleEquipmentChange(equipment.id, current + 1);
-                              }
-                            }}
-                          >
-                            +
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </div>
-              </div>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setReservationDialogOpen(false)}>
-                  Annuler
-                </Button>
-                <Button
-                  onClick={handleReservationSubmit}
-                  disabled={!selectedDate || !selectedSlot || createLoading}
-                >
-                  {createLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Réservation en cours...
-                    </>
-                  ) : (
-                    'Réserver'
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setReservationDialogOpen(false)}>
+                    Annuler
+                  </Button>
+                  <Button
+                    onClick={handleReservationSubmit}
+                    disabled={!selectedDate || !selectedSlot || createLoading}
+                  >
+                    {createLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Réservation en cours...
+                      </>
+                    ) : (
+                      'Réserver'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <Tabs defaultValue="my-reservations">
@@ -320,8 +351,17 @@ const Reservations: React.FC = () => {
                         )}
                       </CardContent>
                       <CardFooter className="flex justify-between">
-                        <Button variant="outline" size="sm">
-                          Voir détails
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            if (reservation.statut === 'confirmée') {
+                              handleStatusChange(reservation.id, 'annulée');
+                            }
+                          }}
+                          disabled={reservation.statut !== 'confirmée'}
+                        >
+                          {reservation.statut === 'confirmée' ? 'Annuler' : 'Voir détails'}
                         </Button>
                         {reservation.devis_id && (
                           <Button size="sm">
@@ -361,32 +401,54 @@ const Reservations: React.FC = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {reservations.map(reservation => {
-                          const dateTime = getReservationDateTime(reservation);
-                          return (
-                            <TableRow key={reservation.id}>
-                              <TableCell>{reservation.id}</TableCell>
-                              <TableCell>{dateTime.date}</TableCell>
-                              <TableCell>{dateTime.time}</TableCell>
-                              <TableCell>{reservation.utilisateur_id}</TableCell>
-                              <TableCell>
-                                <Badge className={reservationStatusColors[reservation.statut]}>
-                                  {reservation.statut}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex gap-2">
-                                  <Button variant="outline" size="sm">
-                                    Détails
-                                  </Button>
-                                  <Button variant="outline" size="sm">
-                                    {reservation.statut === 'confirmée' ? 'Annuler' : 'Confirmer'}
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
+                        {reservations.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                              Aucune réservation trouvée
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          reservations.map(reservation => {
+                            const dateTime = getReservationDateTime(reservation);
+                            return (
+                              <TableRow key={reservation.id}>
+                                <TableCell>{reservation.id}</TableCell>
+                                <TableCell>{dateTime.date}</TableCell>
+                                <TableCell>{dateTime.time}</TableCell>
+                                <TableCell>{reservation.utilisateur_id}</TableCell>
+                                <TableCell>
+                                  <Badge className={reservationStatusColors[reservation.statut]}>
+                                    {reservation.statut}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-2">
+                                    <Button variant="outline" size="sm">
+                                      Détails
+                                    </Button>
+                                    {reservation.statut !== 'confirmée' ? (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => handleStatusChange(reservation.id, 'confirmée')}
+                                      >
+                                        Confirmer
+                                      </Button>
+                                    ) : (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => handleStatusChange(reservation.id, 'annulée')}
+                                      >
+                                        Annuler
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        )}
                       </TableBody>
                     </Table>
                   )}
