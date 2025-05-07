@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { InfoCircledIcon } from '@radix-ui/react-icons';
+import { InfoIcon } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email('Veuillez entrer un email valide'),
@@ -182,13 +182,13 @@ const Login = () => {
               </TabsList>
               <TabsContent value="normal">
                 <Alert variant="default" className="mb-4 bg-blue-50 border-blue-200 text-blue-800">
-                  <InfoCircledIcon className="h-4 w-4 mr-2" />
+                  <InfoIcon className="h-4 w-4 mr-2" />
                   <AlertDescription>Mode de connexion standard. La confirmation de l'email est requise.</AlertDescription>
                 </Alert>
               </TabsContent>
               <TabsContent value="bypass">
                 <Alert variant="default" className="mb-4 bg-amber-50 border-amber-200 text-amber-800">
-                  <InfoCircledIcon className="h-4 w-4 mr-2" />
+                  <InfoIcon className="h-4 w-4 mr-2" />
                   <AlertDescription>Mode de test : contourne la vérification d'email (pour les tests uniquement).</AlertDescription>
                 </Alert>
               </TabsContent>
