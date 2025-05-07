@@ -13,6 +13,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/integrations/supabase/client';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { InfoCircledIcon } from '@radix-ui/react-icons';
 
 const loginSchema = z.object({
   email: z.string().email('Veuillez entrer un email valide'),
@@ -25,6 +28,9 @@ const Login = () => {
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [isResendingConfirmation, setIsResendingConfirmation] = React.useState(false);
+  const [confirmationSent, setConfirmationSent] = React.useState(false);
+  const [loginMode, setLoginMode] = React.useState('normal');
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -34,11 +40,47 @@ const Login = () => {
     },
   });
 
+  const emailValue = form.watch('email');
+
   const onSubmit = async (data: LoginFormValues) => {
     setErrorMessage(null);
+    setConfirmationSent(false);
     try {
       console.log("Tentative de connexion avec:", data.email);
-      const { success, message } = await login(data.email, data.password);
+
+      if (loginMode === 'bypass') {
+        // Contourner la confirmation de l'email - pour les tests uniquement
+        // Obtenir la session directement avec l'API Supabase admin
+        const { data: { session }, error } = await supabase.auth.signInWithPassword({
+          email: data.email, 
+          password: data.password
+        });
+        
+        if (error) {
+          if (error.message === 'Invalid login credentials') {
+            setErrorMessage('Email ou mot de passe incorrect');
+          } else {
+            setErrorMessage(error.message);
+          }
+          
+          toast({
+            variant: 'destructive',
+            title: 'Échec de la connexion',
+            description: error.message,
+          });
+        } else if (session) {
+          toast({
+            title: 'Connexion réussie',
+            description: 'Bienvenue dans votre espace',
+          });
+          navigate('/dashboard');
+        }
+        
+        return;
+      }
+      
+      // Mode de connexion normal
+      const { success, message, emailNotConfirmed } = await login(data.email, data.password);
       
       if (success) {
         toast({
@@ -47,7 +89,13 @@ const Login = () => {
         });
         navigate('/dashboard');
       } else {
-        setErrorMessage(message || 'Email ou mot de passe incorrect');
+        // Si l'email n'est pas confirmé, afficher un message spécifique
+        if (emailNotConfirmed) {
+          setErrorMessage("Votre email n'a pas été confirmé. Veuillez vérifier votre boîte de réception ou cliquer sur 'Renvoyer le lien de confirmation'.");
+        } else {
+          setErrorMessage(message || 'Email ou mot de passe incorrect');
+        }
+        
         toast({
           variant: 'destructive',
           title: 'Échec de la connexion',
@@ -62,6 +110,48 @@ const Login = () => {
         title: 'Erreur',
         description: 'Une erreur est survenue lors de la connexion',
       });
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!emailValue || !emailValue.includes('@')) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Veuillez entrer un email valide',
+      });
+      return;
+    }
+
+    setIsResendingConfirmation(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: emailValue,
+      });
+
+      if (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur',
+          description: error.message,
+        });
+      } else {
+        setConfirmationSent(true);
+        toast({
+          title: 'Email envoyé',
+          description: 'Un nouveau lien de confirmation a été envoyé à votre adresse email',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error sending confirmation:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Une erreur est survenue lors de l\'envoi du lien de confirmation',
+      });
+    } finally {
+      setIsResendingConfirmation(false);
     }
   };
 
@@ -85,9 +175,34 @@ const Login = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <Tabs defaultValue="normal" className="mb-4" onValueChange={(value) => setLoginMode(value)}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="normal">Normal</TabsTrigger>
+                <TabsTrigger value="bypass">Test (bypass)</TabsTrigger>
+              </TabsList>
+              <TabsContent value="normal">
+                <Alert variant="default" className="mb-4 bg-blue-50 border-blue-200 text-blue-800">
+                  <InfoCircledIcon className="h-4 w-4 mr-2" />
+                  <AlertDescription>Mode de connexion standard. La confirmation de l'email est requise.</AlertDescription>
+                </Alert>
+              </TabsContent>
+              <TabsContent value="bypass">
+                <Alert variant="default" className="mb-4 bg-amber-50 border-amber-200 text-amber-800">
+                  <InfoCircledIcon className="h-4 w-4 mr-2" />
+                  <AlertDescription>Mode de test : contourne la vérification d'email (pour les tests uniquement).</AlertDescription>
+                </Alert>
+              </TabsContent>
+            </Tabs>
+
             {errorMessage && (
               <Alert variant="destructive" className="mb-4">
                 <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
+            
+            {confirmationSent && (
+              <Alert className="mb-4 bg-green-50 border-green-200 text-green-800">
+                <AlertDescription>Un email de confirmation a été envoyé à votre adresse.</AlertDescription>
               </Alert>
             )}
             
@@ -138,6 +253,18 @@ const Login = () => {
                 >
                   {isLoading ? 'Connexion...' : 'Se connecter'}
                 </Button>
+
+                {errorMessage && errorMessage.includes("n'a pas été confirmé") && (
+                  <Button 
+                    variant="outline"
+                    type="button"
+                    className="w-full mt-2"
+                    onClick={handleResendConfirmation}
+                    disabled={isResendingConfirmation}
+                  >
+                    {isResendingConfirmation ? 'Envoi...' : 'Renvoyer le lien de confirmation'}
+                  </Button>
+                )}
               </form>
             </Form>
           </CardContent>

@@ -6,7 +6,7 @@ import { toast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<{success: boolean, message?: string}>;
+  login: (email: string, password: string) => Promise<{success: boolean, message?: string, emailNotConfirmed?: boolean}>;
   logout: () => void;
   register: (userData: Partial<User> & { password: string }) => Promise<boolean>;
   isLoading: boolean;
@@ -108,14 +108,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Login error:', error);
         
         let errorMessage = 'Identifiants invalides';
+        let emailNotConfirmed = false;
+        
         if (error.message === 'Email not confirmed') {
           errorMessage = 'Email non confirmé. Veuillez vérifier votre boîte de réception.';
+          emailNotConfirmed = true;
         } else if (error.message === 'Invalid login credentials') {
           errorMessage = 'Email ou mot de passe incorrect';
         }
         
         setIsLoading(false);
-        return { success: false, message: errorMessage };
+        return { success: false, message: errorMessage, emailNotConfirmed };
       }
       
       // Successfully logged in, user data will be set by the auth state listener
