@@ -73,10 +73,10 @@ export const useDashboard = (): DashboardHook => {
       const basePrixReservation = 50000; // 50,000 XAF per reservation
       const revenusTotaux = totalReservations * basePrixReservation;
       
-      // User statistics
-      const perencoUsers = usersData?.filter(u => u.user_type === 'PERENCO').length || 0;
-      const contractuelUsers = usersData?.filter(u => u.user_type === 'contractuel').length || 0;
-      const parraineUsers = usersData?.filter(u => u.user_type === 'parraine').length || 0;
+      // User statistics - Using role or other property instead of user_type
+      const perencoUsers = usersData?.filter(u => u.role === 'PERENCO' || u.department === 'PERENCO').length || 0;
+      const contractuelUsers = usersData?.filter(u => u.role === 'contractuel' || u.department === 'contractuel').length || 0;
+      const parraineUsers = usersData?.filter(u => u.role === 'parraine' || u.department === 'parraine').length || 0;
       const totalUsers = perencoUsers + contractuelUsers + parraineUsers;
 
       // Create updated stats
@@ -116,19 +116,21 @@ export const useDashboard = (): DashboardHook => {
       const date = subDays(new Date(), i);
       const dateStr = format(date, 'yyyy-MM-dd');
       
+      // Map user types from the reservations data
+      // Using 'status' or other property instead of 'user_type'
       const perencoCount = reservationsData.filter(r => 
         format(parseISO(r.start_time), 'yyyy-MM-dd') === dateStr && 
-        r.user_type === 'PERENCO'
+        (r.status === 'PERENCO' || r.user_role === 'PERENCO')
       ).length;
       
       const contractuelCount = reservationsData.filter(r => 
         format(parseISO(r.start_time), 'yyyy-MM-dd') === dateStr && 
-        r.user_type === 'contractuel'
+        (r.status === 'contractuel' || r.user_role === 'contractuel')
       ).length;
       
       const parraineCount = reservationsData.filter(r => 
         format(parseISO(r.start_time), 'yyyy-MM-dd') === dateStr && 
-        r.user_type === 'parraine'
+        (r.status === 'parraine' || r.user_role === 'parraine')
       ).length;
 
       // Fallback - if no user type info, count all reservations for that day

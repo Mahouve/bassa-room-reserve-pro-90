@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { Reservation, ReservationStatus, User, Equipment } from '@/types';
@@ -187,7 +186,7 @@ export const useReservations = (user: User | null): ReservationsHook => {
           }).join(', ')}`
         : 'Aucun équipement';
       
-      // Créer la réservation directement avec l'API Supabase
+      // Create the reservation directly with the Supabase API
       const { data, error } = await supabase
         .from('reservations')
         .insert([{
@@ -211,48 +210,54 @@ export const useReservations = (user: User | null): ReservationsHook => {
           console.log("Tentative de contourner la politique RLS en utilisant les fonctions serveur...");
           
           // On utilise la fonction RPC si elle existe
-          const { data: rpcData, error: rpcError } = await supabase.rpc('create_reservation', {
-            p_user_id: user.id,
-            p_title: `Réservation par ${user.prenom} ${user.nom}`,
-            p_start_time: startDate,
-            p_end_time: endDate,
-            p_status: status,
-            p_room_id: 'default',
-            p_description: equipmentDescription
-          });
-          
-          if (rpcError) {
-            console.error('Error with RPC method:', rpcError);
-            throw new Error('Impossible de créer la réservation: vérifiez vos permissions');
-          }
-          
-          // Si on réussit avec la fonction RPC
-          if (rpcData) {
-            console.log("Réservation créée avec succès via RPC:", rpcData);
-            await fetchReservations();
-            
-            toast({
-              title: 'Réservation créée',
-              description: isAvailable 
-                ? 'Votre réservation a été confirmée' 
-                : 'Votre demande a été placée en liste d\'attente',
+          try {
+            const { data: rpcData, error: rpcError } = await supabase.rpc('create_reservation', {
+              p_user_id: user.id,
+              p_title: `Réservation par ${user.prenom} ${user.nom}`,
+              p_start_time: startDate,
+              p_end_time: endDate,
+              p_status: status,
+              p_room_id: 'default',
+              p_description: equipmentDescription
             });
             
-            // Create the reservation object for our app
-            const newReservationObj: Reservation = {
-              id: rpcData.id || '',
-              utilisateur_id: user.id,
-              date_reservation: newReservation.date_reservation || format(new Date(), 'yyyy-MM-dd'),
-              heure_debut: newReservation.heure_debut || '12:00',
-              heure_fin: newReservation.heure_fin || '18:00',
-              statut: isAvailable ? 'confirmée' : 'liste d\'attente',
-              type_utilisateur: user.statut,
-              devis_id: rpcData.id || '', 
-              confirmation_video_effectuee: false,
-            };
+            if (rpcError) {
+              console.error('Error with RPC method:', rpcError);
+              throw new Error('Impossible de créer la réservation: vérifiez vos permissions');
+            }
             
-            setReservations(prev => [...prev, newReservationObj]);
-            return newReservationObj;
+            // If we succeed with RPC
+            if (rpcData) {
+              console.log("Réservation créée avec succès via RPC:", rpcData);
+              await fetchReservations();
+              
+              toast({
+                title: 'Réservation créée',
+                description: isAvailable 
+                  ? 'Votre réservation a été confirmée' 
+                  : 'Votre demande a été placée en liste d\'attente',
+              });
+              
+              // Create the reservation object for our app
+              const rpcId = typeof rpcData.id === 'string' ? rpcData.id : String(rpcData.id);
+              const newReservationObj: Reservation = {
+                id: rpcId,
+                utilisateur_id: user.id,
+                date_reservation: newReservation.date_reservation || format(new Date(), 'yyyy-MM-dd'),
+                heure_debut: newReservation.heure_debut || '12:00',
+                heure_fin: newReservation.heure_fin || '18:00',
+                statut: isAvailable ? 'confirmée' : 'liste d\'attente',
+                type_utilisateur: user.statut,
+                devis_id: rpcId, 
+                confirmation_video_effectuee: false,
+              };
+              
+              setReservations(prev => [...prev, newReservationObj]);
+              return newReservationObj;
+            }
+          } catch (rpcErr) {
+            console.error('RPC error:', rpcErr);
+            throw new Error('Impossible de créer la réservation via RPC: vérifiez vos permissions');
           }
         }
         
