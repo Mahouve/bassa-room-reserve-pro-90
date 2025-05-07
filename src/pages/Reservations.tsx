@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { toast } from '@/hooks/use-toast';
 import { format, addDays, parse } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { CalendarRange, Clock, CreditCard, FileText, Info, Loader2, RefreshCw, Video, X } from 'lucide-react';
@@ -93,8 +93,14 @@ const Reservations: React.FC = () => {
     });
   };
 
+  // Handle reservation submission
   const handleReservationSubmit = async () => {
     if (!selectedDate || !selectedSlot) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez sélectionner une date et un créneau horaire",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -103,6 +109,12 @@ const Reservations: React.FC = () => {
     try {
       // Format date
       const dateString = format(selectedDate, 'yyyy-MM-dd');
+      
+      console.log("Submitting reservation:", {
+        date: dateString,
+        timeSlot: selectedSlot,
+        equipments: selectedEquipments
+      });
       
       // Create reservation
       const newReservation = await createReservation(
@@ -117,16 +129,30 @@ const Reservations: React.FC = () => {
       // Generate devis if reservation was created
       if (newReservation) {
         await generateDevis(newReservation.id, selectedEquipments);
+        
+        // Reset form
+        setSelectedSlot(null);
+        setSelectedEquipments([]);
+        
+        // Close dialog
+        setReservationDialogOpen(false);
+        
+        // Refresh reservations list
+        await fetchReservations();
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de créer la réservation",
+          variant: "destructive"
+        });
       }
-      
-      // Reset form
-      setSelectedSlot(null);
-      setSelectedEquipments([]);
-      
-      // Close dialog
-      setReservationDialogOpen(false);
     } catch (error) {
       console.error('Error creating reservation:', error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la création de la réservation",
+        variant: "destructive"
+      });
     } finally {
       setCreateLoading(false);
     }

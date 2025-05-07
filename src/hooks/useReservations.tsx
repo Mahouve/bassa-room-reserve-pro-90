@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { Reservation, ReservationStatus, User, Equipment } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
@@ -69,6 +69,13 @@ export const useReservations = (user: User | null): ReservationsHook => {
           description: 'Impossible de charger les réservations',
           variant: 'destructive',
         });
+        setLoading(false);
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        setReservations([]);
+        setLoading(false);
         return;
       }
       
@@ -151,14 +158,29 @@ export const useReservations = (user: User | null): ReservationsHook => {
         return undefined;
       }
       
-      const startDate = `${newReservation.date_reservation}T${newReservation.heure_debut}`;
-      const endDate = `${newReservation.date_reservation}T${newReservation.heure_fin}`;
+      // Format dates properly for Supabase
+      const startDate = `${newReservation.date_reservation}T${newReservation.heure_debut}:00`;
+      const endDate = `${newReservation.date_reservation}T${newReservation.heure_fin}:00`;
+      
+      console.log("Creating reservation with dates:", {
+        startDate,
+        endDate,
+        userId: user.id
+      });
       
       // Check availability first
       const isAvailable = checkAvailability(newReservation);
       const status = isAvailable ? 'confirmed' : 'waitlist';
       
-      // Create reservation in Supabase with the user's authenticated session
+      // Create equipment description
+      const equipmentDescription = selectedEquipments.length > 0 
+        ? `Équipements: ${selectedEquipments.map(e => {
+            const equipment = MOCK_EQUIPMENTS.find(eq => eq.id === e.id);
+            return equipment ? `${equipment.nom} (${e.quantity})` : `${e.id} (${e.quantity})`;
+          }).join(', ')}`
+        : 'Aucun équipement';
+      
+      // Create reservation in Supabase
       const { data, error } = await supabase
         .from('reservations')
         .insert({
@@ -168,10 +190,7 @@ export const useReservations = (user: User | null): ReservationsHook => {
           end_time: endDate,
           status: status,
           room_id: 'default', // You might want to make this dynamic in the future
-          description: `Équipements: ${selectedEquipments.map(e => {
-            const equipment = MOCK_EQUIPMENTS.find(eq => eq.id === e.id);
-            return equipment ? `${equipment.nom} (${e.quantity})` : `${e.id} (${e.quantity})`;
-          }).join(', ')}`,
+          description: equipmentDescription,
         })
         .select()
         .single();
@@ -186,7 +205,9 @@ export const useReservations = (user: User | null): ReservationsHook => {
         return undefined;
       }
       
-      // Create the reservation object
+      console.log("Reservation created successfully:", data);
+      
+      // Create the reservation object for our app
       const reservation: Reservation = {
         id: data.id,
         utilisateur_id: user.id,
@@ -200,7 +221,7 @@ export const useReservations = (user: User | null): ReservationsHook => {
       };
       
       // Update local state
-      setReservations([...reservations, reservation]);
+      setReservations(prev => [...prev, reservation]);
       
       toast({
         title: 'Réservation créée',
@@ -208,6 +229,9 @@ export const useReservations = (user: User | null): ReservationsHook => {
           ? 'Votre réservation a été confirmée' 
           : 'Votre demande a été placée en liste d\'attente',
       });
+      
+      // Refresh reservations list
+      fetchReservations();
       
       return reservation;
     } catch (error) {
