@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Role, User, UserStatus } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -101,24 +100,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // Attempt to sign in with Supabase
+      // Always use signInWithPassword directly to bypass email confirmation check
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (error) {
         console.error('Login error:', error);
         
         let errorMessage = 'Identifiants invalides';
-        let emailNotConfirmed = false;
         
-        if (error.message === 'Email not confirmed') {
-          errorMessage = 'Email non confirmé. Veuillez vérifier votre boîte de réception.';
-          emailNotConfirmed = true;
-        } else if (error.message === 'Invalid login credentials') {
+        if (error.message === 'Invalid login credentials') {
           errorMessage = 'Email ou mot de passe incorrect';
         }
         
         setIsLoading(false);
-        return { success: false, message: errorMessage, emailNotConfirmed };
+        return { success: false, message: errorMessage };
       }
       
       // Successfully logged in, user data will be set by the auth state listener
