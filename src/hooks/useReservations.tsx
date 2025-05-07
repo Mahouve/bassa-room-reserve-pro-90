@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { Reservation, ReservationStatus, User, Equipment } from '@/types';
@@ -32,12 +33,18 @@ const MOCK_EQUIPMENTS: Equipment[] = [
   }
 ];
 
+// Type sécurisé pour les équipements sélectionnés
+interface SelectedEquipment {
+  id: string;
+  quantity: number;
+}
+
 interface ReservationsHook {
   reservations: Reservation[];
   userReservations: Reservation[];
   loading: boolean;
   fetchReservations: () => Promise<void>;
-  createReservation: (newReservation: Partial<Reservation>, selectedEquipments: { id: string; quantity: number }[]) => Promise<Reservation | undefined>;
+  createReservation: (newReservation: Partial<Reservation>, selectedEquipments: SelectedEquipment[]) => Promise<Reservation | undefined>;
   updateReservationStatus: (id: string, newStatus: ReservationStatus) => Promise<boolean>;
   getAvailableSlots: (date: Date) => { start: string; end: string }[];
   getEquipments: () => Equipment[];
@@ -150,7 +157,7 @@ export const useReservations = (user: User | null): ReservationsHook => {
 
   const createReservation = async (
     newReservation: Partial<Reservation>,
-    selectedEquipments: { id: string; quantity: number }[]
+    selectedEquipments: SelectedEquipment[]
   ): Promise<Reservation | undefined> => {
     setLoading(true);
     

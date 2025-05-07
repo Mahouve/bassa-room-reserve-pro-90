@@ -50,6 +50,9 @@ export const useDashboard = (): DashboardHook => {
         return EMPTY_STATS;
       }
 
+      // Log pour vérifier que les réservations sont bien récupérées
+      console.log('Retrieved reservations for dashboard:', reservationsData);
+
       // Fetch users data for statistics
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
@@ -211,8 +214,8 @@ export const useDashboard = (): DashboardHook => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'reservations' },
-        () => {
-          console.log('Reservations changed, updating dashboard data');
+        (payload) => {
+          console.log('Reservations changed, updating dashboard data:', payload);
           // Refresh the stats when reservations change
           const thirtyDaysAgo = subDays(new Date(), 30);
           getStatsForPeriod(thirtyDaysAgo, new Date());
