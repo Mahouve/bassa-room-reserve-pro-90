@@ -13,7 +13,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { supabase } from '@/integrations/supabase/client';
 import { InfoIcon } from 'lucide-react';
 
 const loginSchema = z.object({
@@ -41,7 +40,7 @@ const Login = () => {
     try {
       console.log("Tentative de connexion avec:", data.email);
       
-      // Mode de connexion standard (sans vérification d'email)
+      // Mode de connexion standard
       const { success, message } = await login(data.email, data.password);
       
       if (success) {
@@ -51,6 +50,7 @@ const Login = () => {
         });
         navigate('/dashboard');
       } else {
+        console.error("Échec de connexion:", message);
         setErrorMessage(message || 'Email ou mot de passe incorrect');
         
         toast({
