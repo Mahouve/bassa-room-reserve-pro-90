@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Role, UserStatus } from '@/types';
@@ -23,6 +22,8 @@ export interface ReservationWithDetails extends Reservation {
   user_email?: string;
   room_name?: string;
   user_status?: UserStatus;
+  confirmation_video_effectuee?: boolean;
+  devis_id?: string;
 }
 
 export interface Room {
@@ -77,10 +78,10 @@ export interface UseReservationsReturn {
   fetchReservations: () => Promise<void>;
   fetchRooms: () => Promise<void>;
   // Add missing functions needed by Reservations.tsx
-  userReservations?: ReservationWithDetails[];
-  updateReservationStatus?: (id: string, status: string) => Promise<boolean>;
-  getAvailableSlots?: (date: Date) => TimeSlot[];
-  getEquipments?: () => any[];
+  userReservations: ReservationWithDetails[];
+  updateReservationStatus: (id: string, status: string) => Promise<boolean>;
+  getAvailableSlots: (date: Date) => TimeSlot[];
+  getEquipments: () => any[];
 }
 
 export const useReservations = (): UseReservationsReturn => {
@@ -192,7 +193,9 @@ export const useReservations = (): UseReservationsReturn => {
           user_name: 'Jean Dupont',
           user_email: 'jean.dupont@perenco.com',
           room_name: 'Salle de réunion principale',
-          user_status: 'PERENCO' as UserStatus
+          user_status: 'PERENCO' as UserStatus,
+          confirmation_video_effectuee: false,
+          devis_id: null
         }
       ];
       setReservations(mockReservations);
@@ -228,15 +231,21 @@ export const useReservations = (): UseReservationsReturn => {
         return {
           ...reservation,
           user_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Inconnu',
-          // Fix: Access email from user's auth profile or use a fallback
-          user_email: user?.email || 'N/A',
+          // Fix: Use a fallback for email since it might not exist on the user object
+          user_email: user ? (user as any).email || 'N/A' : 'N/A',
           room_name: room?.name || 'Salle inconnue',
-          user_status: (user?.role as UserStatus) || 'PERENCO'
+          user_status: (user?.role as UserStatus) || 'PERENCO',
+          confirmation_video_effectuee: false, // Default value
+          devis_id: null // Default value
         };
       });
     } catch (error) {
       console.error('Error enhancing reservations with details:', error);
-      return reservations.map(r => ({ ...r }));
+      return reservations.map(r => ({ 
+        ...r, 
+        confirmation_video_effectuee: false,
+        devis_id: null
+      }));
     }
   };
 
@@ -389,7 +398,9 @@ export const useReservations = (): UseReservationsReturn => {
           user_name: `${user.prenom} ${user.nom}`,
           user_email: user.email,
           room_name: rooms.find(r => r.id === formData.room_id)?.name || 'Salle',
-          user_status: user.statut
+          user_status: user.statut,
+          confirmation_video_effectuee: false,
+          devis_id: null
         };
         
         // On ajoute cette réservation aux états locaux
@@ -417,7 +428,9 @@ export const useReservations = (): UseReservationsReturn => {
           user_name: `${user.prenom} ${user.nom}`,
           user_email: user.email,
           room_name: rooms.find(r => r.id === formData.room_id)?.name || 'Salle',
-          user_status: user.statut
+          user_status: user.statut,
+          confirmation_video_effectuee: false,
+          devis_id: null
         };
         
         setReservations(prev => [...prev, enhancedReservation]);

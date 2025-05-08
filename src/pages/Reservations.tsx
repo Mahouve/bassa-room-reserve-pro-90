@@ -24,9 +24,9 @@ import { CalendarRange, Clock, CreditCard, FileText, Info, Loader2, RefreshCw, V
 const Reservations: React.FC = () => {
   const { user } = useAuth();
   const { 
-    reservations, 
-    myReservations: userReservations, 
     loading, 
+    reservations,
+    myReservations,
     fetchReservations,
     createReservation, 
     updateReservationStatus, 
@@ -39,11 +39,18 @@ const Reservations: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [availableSlots, setAvailableSlots] = useState<{start: string, end: string, isAvailable: boolean}[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<{start: string, end: string} | null>(null);
-  const [equipments, setEquipments] = useState<Equipment[]>(getEquipments ? getEquipments() : []);
+  const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [selectedEquipments, setSelectedEquipments] = useState<{id: string, quantity: number}[]>([]);
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Set equipment when component mounts
+  useEffect(() => {
+    if (getEquipments) {
+      setEquipments(getEquipments());
+    }
+  }, [getEquipments]);
 
   const isAdmin = user?.role === 'admin';
   const isManager = user?.role === 'manager';
@@ -348,7 +355,7 @@ const Reservations: React.FC = () => {
                 <div className="col-span-full flex justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-perenco-accent" />
                 </div>
-              ) : userReservations && userReservations.length === 0 ? (
+              ) : myReservations && myReservations.length === 0 ? (
                 <div className="col-span-full text-center py-8">
                   <FileText className="h-16 w-16 mx-auto text-gray-300 mb-4" />
                   <h3 className="text-lg font-medium">Aucune réservation</h3>
@@ -363,8 +370,9 @@ const Reservations: React.FC = () => {
                   </Button>
                 </div>
               ) : (
-                userReservations && userReservations.map(reservation => {
+                myReservations && myReservations.map(reservation => {
                   const dateTime = getReservationDateTime(reservation);
+                  // Use null coalescing for potentially undefined properties
                   const videoConfirmation = reservation.confirmation_video_effectuee || false;
                   return (
                     <Card key={reservation.id} className="card-hover-effect">
