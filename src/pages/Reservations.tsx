@@ -130,7 +130,7 @@ const Reservations: React.FC = () => {
       });
       
       // Create reservation with the updated interface
-      const newReservation = await createReservation({
+      const success = await createReservation({
         title: `Réservation du ${format(selectedDate, 'dd/MM/yyyy')}`,
         description: "Réservation créée via le formulaire",
         room_id: "room-1", // Default room ID
@@ -145,7 +145,7 @@ const Reservations: React.FC = () => {
       });
       
       // Check if reservation was created
-      if (newReservation) {
+      if (success) {
         // Reset form
         setSelectedSlot(null);
         setSelectedEquipments([]);
@@ -241,7 +241,7 @@ const Reservations: React.FC = () => {
                         selected={selectedDate}
                         onSelect={handleDateSelect}
                         disabled={(date) => date < new Date()}
-                        className="mx-auto"
+                        className="mx-auto pointer-events-auto"
                       />
                     </div>
                   </div>
@@ -256,9 +256,11 @@ const Reservations: React.FC = () => {
                             variant={selectedSlot && selectedSlot.start === slot.start && selectedSlot.end === slot.end ? "default" : "outline"}
                             className="justify-start"
                             onClick={() => handleSlotSelect(slot)}
+                            disabled={!slot.isAvailable}
                           >
                             <Clock className="mr-2 h-4 w-4" />
                             <span>{slot.start} - {slot.end}</span>
+                            {!slot.isAvailable && <span className="ml-auto text-red-500">Indisponible</span>}
                           </Button>
                         ))}
                       </div>
@@ -378,9 +380,9 @@ const Reservations: React.FC = () => {
                     <Card key={reservation.id} className="card-hover-effect">
                       <CardHeader>
                         <CardTitle className="flex items-center justify-between">
-                          <span>Réservation #{reservation.id}</span>
-                          <Badge className={reservationStatusColors[reservation.status]}>
-                            {reservation.status}
+                          <span>Réservation #{reservation.id.substring(0, 8)}</span>
+                          <Badge className={reservationStatusColors[reservation.status] || reservationStatusColors[reservation.statut || '']}>
+                            {reservation.statut || reservation.status}
                           </Badge>
                         </CardTitle>
                         <CardDescription>{dateTime.date}</CardDescription>
@@ -406,13 +408,18 @@ const Reservations: React.FC = () => {
                           variant="outline" 
                           size="sm"
                           onClick={() => {
-                            if (reservation.status === 'confirmed' || reservation.status === 'confirmée') {
+                            if (reservation.status === 'confirmed' || reservation.status === 'confirmée' ||
+                                reservation.statut === 'confirmed' || reservation.statut === 'confirmée') {
                               handleStatusChange(reservation.id, 'cancelled');
                             }
                           }}
-                          disabled={reservation.status !== 'confirmed' && reservation.status !== 'confirmée'}
+                          disabled={reservation.status !== 'confirmed' && 
+                                   reservation.status !== 'confirmée' && 
+                                   reservation.statut !== 'confirmed' && 
+                                   reservation.statut !== 'confirmée'}
                         >
-                          {(reservation.status === 'confirmed' || reservation.status === 'confirmée') ? 'Annuler' : 'Voir détails'}
+                          {(reservation.status === 'confirmed' || reservation.status === 'confirmée' ||
+                            reservation.statut === 'confirmed' || reservation.statut === 'confirmée') ? 'Annuler' : 'Voir détails'}
                         </Button>
                         {reservation.devis_id && (
                           <Button size="sm">
@@ -463,13 +470,13 @@ const Reservations: React.FC = () => {
                             const dateTime = getReservationDateTime(reservation);
                             return (
                               <TableRow key={reservation.id}>
-                                <TableCell>{reservation.id}</TableCell>
+                                <TableCell>{reservation.id.substring(0, 8)}</TableCell>
                                 <TableCell>{dateTime.date}</TableCell>
                                 <TableCell>{dateTime.time}</TableCell>
-                                <TableCell>{reservation.user_id}</TableCell>
+                                <TableCell>{reservation.utilisateur_id || reservation.user_id}</TableCell>
                                 <TableCell>
-                                  <Badge className={reservationStatusColors[reservation.status]}>
-                                    {reservation.status}
+                                  <Badge className={reservationStatusColors[reservation.status] || reservationStatusColors[reservation.statut || '']}>
+                                    {reservation.statut || reservation.status}
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
@@ -477,7 +484,10 @@ const Reservations: React.FC = () => {
                                     <Button variant="outline" size="sm">
                                       Détails
                                     </Button>
-                                    {reservation.status !== 'confirmed' && reservation.status !== 'confirmée' ? (
+                                    {(reservation.status !== 'confirmed' && 
+                                      reservation.status !== 'confirmée' && 
+                                      reservation.statut !== 'confirmed' && 
+                                      reservation.statut !== 'confirmée') ? (
                                       <Button 
                                         variant="outline" 
                                         size="sm"
@@ -521,7 +531,7 @@ const Reservations: React.FC = () => {
                       mode="single"
                       selected={selectedDate}
                       onSelect={handleDateSelect}
-                      className="mx-auto"
+                      className="mx-auto pointer-events-auto"
                     />
                   </div>
                   
@@ -538,45 +548,34 @@ const Reservations: React.FC = () => {
                           <Loader2 className="h-6 w-6 animate-spin text-perenco-accent" />
                         </div>
                       ) : availableSlots.length > 0 ? (
-                        availableSlots.map((slot, index) => (
-                          <div key={index} className="flex items-center p-2 border rounded-md bg-green-50">
-                            <div className="h-3 w-3 rounded-full bg-green-500 mr-3" />
-                            <span className="font-medium">{slot.start} - {slot.end}</span>
-                            <Badge className="ml-auto" variant="outline">
-                              Disponible
-                            </Badge>
-                          </div>
-                        ))
+                        availableSlots.map((slot, index) => {
+                          if (slot.isAvailable) {
+                            return (
+                              <div key={index} className="flex items-center p-2 border rounded-md bg-green-50">
+                                <div className="h-3 w-3 rounded-full bg-green-500 mr-3" />
+                                <span className="font-medium">{slot.start} - {slot.end}</span>
+                                <Badge className="ml-auto" variant="outline">
+                                  Disponible
+                                </Badge>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div key={index} className="flex items-center p-2 border rounded-md bg-red-50">
+                                <div className="h-3 w-3 rounded-full bg-red-500 mr-3" />
+                                <span className="font-medium">{slot.start} - {slot.end}</span>
+                                <Badge className="ml-auto" variant="outline">
+                                  Réservé
+                                </Badge>
+                              </div>
+                            );
+                          }
+                        })
                       ) : (
                         <div className="text-center p-4 border rounded-md bg-yellow-50">
                           <p>Aucun créneau disponible à cette date.</p>
                         </div>
                       )}
-                      
-                      {reservations
-                        .filter(r => {
-                          const reservationDate = r.start_time.split('T')[0];
-                          const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-                          return reservationDate === selectedDateStr;
-                        })
-                        .map(reservation => (
-                          <div 
-                            key={reservation.id} 
-                            className="flex items-center p-2 border rounded-md bg-red-50"
-                          >
-                            <div className="h-3 w-3 rounded-full bg-red-500 mr-3" />
-                            <span className="font-medium">
-                              {reservation.start_time.split('T')[1].substring(0, 5)} - 
-                              {reservation.end_time.split('T')[1].substring(0, 5)}
-                            </span>
-                            <Badge 
-                              className="ml-auto" 
-                              variant="outline"
-                            >
-                              Réservé
-                            </Badge>
-                          </div>
-                        ))}
                     </div>
                   </div>
                 </div>

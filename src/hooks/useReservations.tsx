@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Role, UserStatus } from '@/types';
@@ -24,6 +25,13 @@ export interface ReservationWithDetails extends Reservation {
   user_status?: UserStatus;
   confirmation_video_effectuee?: boolean;
   devis_id?: string;
+  // Add these to match the expected interface in other files
+  utilisateur_id?: string;
+  date_reservation?: string;
+  heure_debut?: string;
+  heure_fin?: string;
+  statut?: string;
+  type_utilisateur?: UserStatus;
 }
 
 export interface Room {
@@ -66,6 +74,7 @@ export interface UseReservationsReturn {
   isUpdating: boolean;
   reservations: ReservationWithDetails[];
   myReservations: ReservationWithDetails[];
+  userReservations: ReservationWithDetails[]; // Add this to match expected interface
   rooms: Room[];
   selectedRoom: Room | null;
   setSelectedRoom: (room: Room | null) => void;
@@ -77,8 +86,6 @@ export interface UseReservationsReturn {
   cancelReservation: (reservationId: string) => Promise<boolean>;
   fetchReservations: () => Promise<void>;
   fetchRooms: () => Promise<void>;
-  // Add missing functions needed by Reservations.tsx
-  userReservations: ReservationWithDetails[];
   updateReservationStatus: (id: string, status: string) => Promise<boolean>;
   getAvailableSlots: (date: Date) => TimeSlot[];
   getEquipments: () => any[];
@@ -195,7 +202,14 @@ export const useReservations = (): UseReservationsReturn => {
           room_name: 'Salle de réunion principale',
           user_status: 'PERENCO' as UserStatus,
           confirmation_video_effectuee: false,
-          devis_id: null
+          devis_id: null,
+          // Add these to match the expected interface
+          utilisateur_id: user?.id || 'user-1',
+          date_reservation: new Date().toISOString().split('T')[0],
+          heure_debut: '10:00',
+          heure_fin: '12:00',
+          statut: 'confirmée',
+          type_utilisateur: 'PERENCO' as UserStatus
         }
       ];
       setReservations(mockReservations);
@@ -227,26 +241,51 @@ export const useReservations = (): UseReservationsReturn => {
       return reservations.map(reservation => {
         const user = users?.find(u => u.id === reservation.user_id);
         const room = roomsData?.find(r => r.id === reservation.room_id);
+        const userName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Inconnu';
         
+        // Add mapped fields for compatibility with the rest of the codebase
         return {
           ...reservation,
-          user_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Inconnu',
-          // Fix: Use a fallback for email since it might not exist on the user object
-          user_email: user ? (user as any).email || 'N/A' : 'N/A',
+          user_name: userName,
+          user_email: 'user@example.com', // Default email since it might not exist in profiles table
           room_name: room?.name || 'Salle inconnue',
           user_status: (user?.role as UserStatus) || 'PERENCO',
           confirmation_video_effectuee: false, // Default value
-          devis_id: null // Default value
+          devis_id: null, // Default value
+          // Map to the expected interface fields
+          utilisateur_id: reservation.user_id,
+          date_reservation: reservation.start_time.split('T')[0],
+          heure_debut: reservation.start_time.split('T')[1].substring(0, 5),
+          heure_fin: reservation.end_time.split('T')[1].substring(0, 5),
+          statut: mapStatus(reservation.status),
+          type_utilisateur: (user?.role as UserStatus) || 'PERENCO'
         };
       });
     } catch (error) {
       console.error('Error enhancing reservations with details:', error);
-      return reservations.map(r => ({ 
-        ...r, 
+      return reservations.map(r => ({
+        ...r,
         confirmation_video_effectuee: false,
-        devis_id: null
+        devis_id: null,
+        utilisateur_id: r.user_id,
+        date_reservation: r.start_time.split('T')[0],
+        heure_debut: r.start_time.split('T')[1].substring(0, 5),
+        heure_fin: r.end_time.split('T')[1].substring(0, 5),
+        statut: mapStatus(r.status),
+        type_utilisateur: 'PERENCO' as UserStatus
       }));
     }
+  };
+
+  // Helper function to map status values
+  const mapStatus = (status: string): string => {
+    const statusMap: Record<string, string> = {
+      'confirmed': 'confirmée',
+      'cancelled': 'annulée',
+      'pending': 'en attente',
+      'waitlist': 'liste d\'attente'
+    };
+    return statusMap[status] || status;
   };
 
   const filterMyReservations = () => {
@@ -400,7 +439,13 @@ export const useReservations = (): UseReservationsReturn => {
           room_name: rooms.find(r => r.id === formData.room_id)?.name || 'Salle',
           user_status: user.statut,
           confirmation_video_effectuee: false,
-          devis_id: null
+          devis_id: null,
+          utilisateur_id: user.id,
+          date_reservation: dateString,
+          heure_debut: formData.start_time,
+          heure_fin: formData.end_time,
+          statut: 'confirmée',
+          type_utilisateur: user.statut
         };
         
         // On ajoute cette réservation aux états locaux
@@ -430,7 +475,13 @@ export const useReservations = (): UseReservationsReturn => {
           room_name: rooms.find(r => r.id === formData.room_id)?.name || 'Salle',
           user_status: user.statut,
           confirmation_video_effectuee: false,
-          devis_id: null
+          devis_id: null,
+          utilisateur_id: newReservation.user_id,
+          date_reservation: dateString,
+          heure_debut: formData.start_time,
+          heure_fin: formData.end_time,
+          statut: 'confirmée',
+          type_utilisateur: user.statut
         };
         
         setReservations(prev => [...prev, enhancedReservation]);
@@ -475,11 +526,11 @@ export const useReservations = (): UseReservationsReturn => {
       
       // Update local state
       setReservations(prev => 
-        prev.map(r => r.id === reservationId ? { ...r, status: 'cancelled' } : r)
+        prev.map(r => r.id === reservationId ? { ...r, status: 'cancelled', statut: 'annulée' } : r)
       );
       
       setMyReservations(prev => 
-        prev.map(r => r.id === reservationId ? { ...r, status: 'cancelled' } : r)
+        prev.map(r => r.id === reservationId ? { ...r, status: 'cancelled', statut: 'annulée' } : r)
       );
       
       toast({
@@ -501,7 +552,7 @@ export const useReservations = (): UseReservationsReturn => {
     }
   };
 
-  // Add these required functions for Reservations.tsx
+  // Implement these required functions for Reservations.tsx
   const updateReservationStatus = async (id: string, status: string) => {
     setIsUpdating(true);
     try {
@@ -512,13 +563,15 @@ export const useReservations = (): UseReservationsReturn => {
         
       if (error) throw error;
       
-      // Update local state
+      // Update local state with both status and statut properties
+      const mappedStatus = mapStatus(status);
+      
       setReservations(prev => 
-        prev.map(r => r.id === id ? { ...r, status } : r)
+        prev.map(r => r.id === id ? { ...r, status, statut: mappedStatus } : r)
       );
       
       setMyReservations(prev => 
-        prev.map(r => r.id === id ? { ...r, status } : r)
+        prev.map(r => r.id === id ? { ...r, status, statut: mappedStatus } : r)
       );
       
       toast({
@@ -608,6 +661,7 @@ export const useReservations = (): UseReservationsReturn => {
     isUpdating,
     reservations,
     myReservations,
+    userReservations: myReservations, // Alias for myReservations to match interface
     rooms,
     selectedRoom,
     setSelectedRoom,
@@ -619,8 +673,7 @@ export const useReservations = (): UseReservationsReturn => {
     cancelReservation,
     fetchReservations,
     fetchRooms,
-    // Add these to make Reservations.tsx happy
-    userReservations: myReservations,
+    // Include these to match the expected interface
     updateReservationStatus,
     getAvailableSlots,
     getEquipments
