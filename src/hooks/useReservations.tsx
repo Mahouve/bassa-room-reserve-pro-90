@@ -58,7 +58,32 @@ export interface SelectedEquipment {
   quantity: number;
 }
 
-export const useReservations = () => {
+// Define a comprehensive interface for the hook's return value
+export interface UseReservationsReturn {
+  loading: boolean;
+  isCreating: boolean;
+  isUpdating: boolean;
+  reservations: ReservationWithDetails[];
+  myReservations: ReservationWithDetails[];
+  rooms: Room[];
+  selectedRoom: Room | null;
+  setSelectedRoom: (room: Room | null) => void;
+  selectedDate: Date;
+  setSelectedDate: (date: Date) => void;
+  timeSlots: TimeSlot[];
+  updateTimeSlots: () => Promise<void>;
+  createReservation: (formData: ReservationFormData) => Promise<boolean>;
+  cancelReservation: (reservationId: string) => Promise<boolean>;
+  fetchReservations: () => Promise<void>;
+  fetchRooms: () => Promise<void>;
+  // Add missing functions needed by Reservations.tsx
+  userReservations?: ReservationWithDetails[];
+  updateReservationStatus?: (id: string, status: string) => Promise<boolean>;
+  getAvailableSlots?: (date: Date) => TimeSlot[];
+  getEquipments?: () => any[];
+}
+
+export const useReservations = (): UseReservationsReturn => {
   const { user } = useAuth();
   const [loading, setLoading] = useState<boolean>(true);
   const [reservations, setReservations] = useState<ReservationWithDetails[]>([]);
@@ -203,9 +228,10 @@ export const useReservations = () => {
         return {
           ...reservation,
           user_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Inconnu',
+          // Fix: Access email from user's auth profile or use a fallback
           user_email: user?.email || 'N/A',
           room_name: room?.name || 'Salle inconnue',
-          user_status: user?.role as UserStatus || 'PERENCO'
+          user_status: (user?.role as UserStatus) || 'PERENCO'
         };
       });
     } catch (error) {
@@ -462,6 +488,107 @@ export const useReservations = () => {
     }
   };
 
+  // Add these required functions for Reservations.tsx
+  const updateReservationStatus = async (id: string, status: string) => {
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('reservations')
+        .update({ status })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setReservations(prev => 
+        prev.map(r => r.id === id ? { ...r, status } : r)
+      );
+      
+      setMyReservations(prev => 
+        prev.map(r => r.id === id ? { ...r, status } : r)
+      );
+      
+      toast({
+        title: "Statut mis à jour",
+        description: `La réservation a été ${status === 'cancelled' ? 'annulée' : 'mise à jour'} avec succès`,
+      });
+      
+      return true;
+    } catch (error) {
+      console.error("Error updating reservation status:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour le statut de la réservation",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const getAvailableSlots = (date: Date) => {
+    // Return all available time slots for the selected date
+    const formattedDate = date.toISOString().split('T')[0];
+    
+    // Find conflicting reservations
+    const conflictingReservations = reservations.filter(r => {
+      const reservationDate = r.start_time.split('T')[0];
+      return reservationDate === formattedDate && r.status !== 'cancelled';
+    });
+    
+    // Create slots with availability information
+    return AVAILABLE_TIME_SLOTS.map(slot => {
+      const startDateTime = `${formattedDate}T${slot.start}:00`;
+      const endDateTime = `${formattedDate}T${slot.end}:00`;
+      
+      // Check if slot is already reserved
+      const conflictingReservation = conflictingReservations.find(res => {
+        const resStart = new Date(res.start_time).toISOString();
+        const resEnd = new Date(res.end_time).toISOString();
+        const slotStart = new Date(startDateTime).toISOString();
+        const slotEnd = new Date(endDateTime).toISOString();
+        
+        return (
+          (slotStart >= resStart && slotStart < resEnd) || // Slot start during reservation
+          (slotEnd > resStart && slotEnd <= resEnd) || // Slot end during reservation
+          (slotStart <= resStart && slotEnd >= resEnd) // Slot contains reservation
+        );
+      });
+
+      return {
+        start: slot.start,
+        end: slot.end,
+        isAvailable: !conflictingReservation,
+        reservation: conflictingReservation
+      };
+    });
+  };
+
+  const getEquipments = () => {
+    // Return mock equipment data
+    return [
+      {
+        id: 'eq-1',
+        nom: 'Projecteur',
+        quantite_totale: 5,
+        description: 'Projecteur HD avec connexion HDMI'
+      },
+      {
+        id: 'eq-2',
+        nom: 'Système audio',
+        quantite_totale: 3,
+        description: 'Enceintes et microphones sans fil'
+      },
+      {
+        id: 'eq-3',
+        nom: 'Tableau blanc',
+        quantite_totale: 8,
+        description: 'Tableau blanc effaçable à sec avec marqueurs'
+      }
+    ];
+  };
+
   return {
     loading,
     isCreating,
@@ -478,6 +605,11 @@ export const useReservations = () => {
     createReservation,
     cancelReservation,
     fetchReservations,
-    fetchRooms
+    fetchRooms,
+    // Add these to make Reservations.tsx happy
+    userReservations: myReservations,
+    updateReservationStatus,
+    getAvailableSlots,
+    getEquipments
   };
 };

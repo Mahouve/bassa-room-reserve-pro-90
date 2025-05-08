@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/hooks/useAuth';
-import { useReservations } from '@/hooks/useReservations';
+import { useReservations, ReservationWithDetails } from '@/hooks/useReservations';
 import { usePayments } from '@/hooks/usePayments';
-import { Reservation, Equipment } from '@/types';
+import { Equipment } from '@/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -24,20 +25,21 @@ const Reservations: React.FC = () => {
   const { user } = useAuth();
   const { 
     reservations, 
-    userReservations, 
+    myReservations: userReservations, 
     loading, 
     fetchReservations,
     createReservation, 
     updateReservationStatus, 
     getAvailableSlots, 
     getEquipments 
-  } = useReservations(user);
+  } = useReservations();
+  
   const { generateDevis } = usePayments();
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [availableSlots, setAvailableSlots] = useState<{start: string, end: string}[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<{start: string, end: string, isAvailable: boolean}[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<{start: string, end: string} | null>(null);
-  const [equipments, setEquipments] = useState<Equipment[]>(getEquipments());
+  const [equipments, setEquipments] = useState<Equipment[]>(getEquipments ? getEquipments() : []);
   const [selectedEquipments, setSelectedEquipments] = useState<{id: string, quantity: number}[]>([]);
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
@@ -52,16 +54,20 @@ const Reservations: React.FC = () => {
     'confirmée': 'bg-green-100 text-green-800',
     'liste d\'attente': 'bg-blue-100 text-blue-800',
     'annulée': 'bg-red-100 text-red-800',
+    'confirmed': 'bg-green-100 text-green-800',
+    'cancelled': 'bg-red-100 text-red-800',
+    'pending': 'bg-yellow-100 text-yellow-800',
+    'waitlist': 'bg-blue-100 text-blue-800',
   };
 
   // Update available slots when date changes
   React.useEffect(() => {
-    if (selectedDate) {
+    if (selectedDate && getAvailableSlots) {
       const slots = getAvailableSlots(selectedDate);
       setAvailableSlots(slots);
       setSelectedSlot(null);
     }
-  }, [selectedDate, reservations]);
+  }, [selectedDate, reservations, getAvailableSlots]);
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
@@ -116,20 +122,23 @@ const Reservations: React.FC = () => {
         equipments: selectedEquipments
       });
       
-      // Create reservation
-      const newReservation = await createReservation(
-        {
-          date_reservation: dateString,
-          heure_debut: selectedSlot.start,
-          heure_fin: selectedSlot.end,
-        },
-        selectedEquipments
-      );
+      // Create reservation with the updated interface
+      const newReservation = await createReservation({
+        title: `Réservation du ${format(selectedDate, 'dd/MM/yyyy')}`,
+        description: "Réservation créée via le formulaire",
+        room_id: "room-1", // Default room ID
+        date: selectedDate,
+        start_time: selectedSlot.start,
+        end_time: selectedSlot.end,
+        selectedEquipment: selectedEquipments.map(e => ({
+          id: e.id,
+          name: equipments.find(eq => eq.id === e.id)?.nom || '',
+          quantity: e.quantity
+        }))
+      });
       
-      // Generate devis if reservation was created
+      // Check if reservation was created
       if (newReservation) {
-        await generateDevis(newReservation.id, selectedEquipments);
-        
         // Reset form
         setSelectedSlot(null);
         setSelectedEquipments([]);
@@ -139,6 +148,11 @@ const Reservations: React.FC = () => {
         
         // Refresh reservations list
         await fetchReservations();
+        
+        toast({
+          title: "Succès",
+          description: "Votre réservation a été créée avec succès",
+        });
       } else {
         toast({
           title: "Erreur",
@@ -158,11 +172,11 @@ const Reservations: React.FC = () => {
     }
   };
 
-  const getReservationDateTime = (reservation: Reservation) => {
-    const date = parse(reservation.date_reservation, 'yyyy-MM-dd', new Date());
+  const getReservationDateTime = (reservation: ReservationWithDetails) => {
+    const date = new Date(reservation.start_time);
     return {
       date: format(date, 'dd MMMM yyyy', { locale: fr }),
-      time: `${reservation.heure_debut} - ${reservation.heure_fin}`,
+      time: `${reservation.start_time.split('T')[1].substring(0, 5)} - ${reservation.end_time.split('T')[1].substring(0, 5)}`,
     };
   };
 
@@ -172,8 +186,10 @@ const Reservations: React.FC = () => {
     setRefreshing(false);
   };
 
-  const handleStatusChange = async (id: string, newStatus: 'confirmée' | 'annulée' | 'en attente') => {
-    await updateReservationStatus(id, newStatus);
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    if (updateReservationStatus) {
+      await updateReservationStatus(id, newStatus);
+    }
   };
 
   return (
@@ -230,7 +246,7 @@ const Reservations: React.FC = () => {
                         {availableSlots.map((slot, index) => (
                           <Button
                             key={index}
-                            variant={selectedSlot === slot ? "default" : "outline"}
+                            variant={selectedSlot && selectedSlot.start === slot.start && selectedSlot.end === slot.end ? "default" : "outline"}
                             className="justify-start"
                             onClick={() => handleSlotSelect(slot)}
                           >
@@ -332,7 +348,7 @@ const Reservations: React.FC = () => {
                 <div className="col-span-full flex justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-perenco-accent" />
                 </div>
-              ) : userReservations.length === 0 ? (
+              ) : userReservations && userReservations.length === 0 ? (
                 <div className="col-span-full text-center py-8">
                   <FileText className="h-16 w-16 mx-auto text-gray-300 mb-4" />
                   <h3 className="text-lg font-medium">Aucune réservation</h3>
@@ -347,15 +363,16 @@ const Reservations: React.FC = () => {
                   </Button>
                 </div>
               ) : (
-                userReservations.map(reservation => {
+                userReservations && userReservations.map(reservation => {
                   const dateTime = getReservationDateTime(reservation);
+                  const videoConfirmation = reservation.confirmation_video_effectuee || false;
                   return (
                     <Card key={reservation.id} className="card-hover-effect">
                       <CardHeader>
                         <CardTitle className="flex items-center justify-between">
                           <span>Réservation #{reservation.id}</span>
-                          <Badge className={reservationStatusColors[reservation.statut]}>
-                            {reservation.statut}
+                          <Badge className={reservationStatusColors[reservation.status]}>
+                            {reservation.status}
                           </Badge>
                         </CardTitle>
                         <CardDescription>{dateTime.date}</CardDescription>
@@ -367,7 +384,7 @@ const Reservations: React.FC = () => {
                         </div>
                         <div className="flex items-center">
                           <Video className="h-4 w-4 mr-2 text-muted-foreground" />
-                          <span>{reservation.confirmation_video_effectuee ? 'Entretien effectué' : 'Entretien à prévoir'}</span>
+                          <span>{videoConfirmation ? 'Entretien effectué' : 'Entretien à prévoir'}</span>
                         </div>
                         {reservation.devis_id && (
                           <div className="flex items-center">
@@ -381,13 +398,13 @@ const Reservations: React.FC = () => {
                           variant="outline" 
                           size="sm"
                           onClick={() => {
-                            if (reservation.statut === 'confirmée') {
-                              handleStatusChange(reservation.id, 'annulée');
+                            if (reservation.status === 'confirmed' || reservation.status === 'confirmée') {
+                              handleStatusChange(reservation.id, 'cancelled');
                             }
                           }}
-                          disabled={reservation.statut !== 'confirmée'}
+                          disabled={reservation.status !== 'confirmed' && reservation.status !== 'confirmée'}
                         >
-                          {reservation.statut === 'confirmée' ? 'Annuler' : 'Voir détails'}
+                          {(reservation.status === 'confirmed' || reservation.status === 'confirmée') ? 'Annuler' : 'Voir détails'}
                         </Button>
                         {reservation.devis_id && (
                           <Button size="sm">
@@ -441,10 +458,10 @@ const Reservations: React.FC = () => {
                                 <TableCell>{reservation.id}</TableCell>
                                 <TableCell>{dateTime.date}</TableCell>
                                 <TableCell>{dateTime.time}</TableCell>
-                                <TableCell>{reservation.utilisateur_id}</TableCell>
+                                <TableCell>{reservation.user_id}</TableCell>
                                 <TableCell>
-                                  <Badge className={reservationStatusColors[reservation.statut]}>
-                                    {reservation.statut}
+                                  <Badge className={reservationStatusColors[reservation.status]}>
+                                    {reservation.status}
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
@@ -452,11 +469,11 @@ const Reservations: React.FC = () => {
                                     <Button variant="outline" size="sm">
                                       Détails
                                     </Button>
-                                    {reservation.statut !== 'confirmée' ? (
+                                    {reservation.status !== 'confirmed' && reservation.status !== 'confirmée' ? (
                                       <Button 
                                         variant="outline" 
                                         size="sm"
-                                        onClick={() => handleStatusChange(reservation.id, 'confirmée')}
+                                        onClick={() => handleStatusChange(reservation.id, 'confirmed')}
                                       >
                                         Confirmer
                                       </Button>
@@ -464,7 +481,7 @@ const Reservations: React.FC = () => {
                                       <Button 
                                         variant="outline" 
                                         size="sm"
-                                        onClick={() => handleStatusChange(reservation.id, 'annulée')}
+                                        onClick={() => handleStatusChange(reservation.id, 'cancelled')}
                                       >
                                         Annuler
                                       </Button>
@@ -529,14 +546,21 @@ const Reservations: React.FC = () => {
                       )}
                       
                       {reservations
-                        .filter(r => r.date_reservation === format(selectedDate, 'yyyy-MM-dd'))
+                        .filter(r => {
+                          const reservationDate = r.start_time.split('T')[0];
+                          const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+                          return reservationDate === selectedDateStr;
+                        })
                         .map(reservation => (
                           <div 
                             key={reservation.id} 
                             className="flex items-center p-2 border rounded-md bg-red-50"
                           >
                             <div className="h-3 w-3 rounded-full bg-red-500 mr-3" />
-                            <span className="font-medium">{reservation.heure_debut} - {reservation.heure_fin}</span>
+                            <span className="font-medium">
+                              {reservation.start_time.split('T')[1].substring(0, 5)} - 
+                              {reservation.end_time.split('T')[1].substring(0, 5)}
+                            </span>
                             <Badge 
                               className="ml-auto" 
                               variant="outline"

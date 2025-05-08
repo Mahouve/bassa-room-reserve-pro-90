@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import { usePayments } from '@/hooks/usePayments';
@@ -28,12 +27,12 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 const Paiements: React.FC = () => {
   const { user } = useAuth();
   const { payments, devis, loading, createPayment, uploadJustificatif } = usePayments();
-  const { reservations } = useReservations(user);
+  const { reservations } = useReservations();
   const [paymentFormData, setPaymentFormData] = useState({
     reservation_id: '',
     montant: 0,
@@ -197,7 +196,7 @@ const Paiements: React.FC = () => {
                     <SelectContent>
                       {reservations.map(reservation => (
                         <SelectItem key={reservation.id} value={reservation.id}>
-                          Réservation #{reservation.id} - {reservation.date_reservation}
+                          Réservation #{reservation.id} - {reservation.start_time.split('T')[0]}
                         </SelectItem>
                       ))}
                     </SelectContent>
