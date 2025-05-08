@@ -183,7 +183,7 @@ const Reservations: React.FC = () => {
     const date = new Date(reservation.start_time);
     return {
       date: format(date, 'dd MMMM yyyy', { locale: fr }),
-      time: `${reservation.start_time.split('T')[1].substring(0, 5)} - ${reservation.end_time.split('T')[1].substring(0, 5)}`,
+      time: `${reservation.heure_debut} - ${reservation.heure_fin}`,
     };
   };
 
@@ -194,9 +194,7 @@ const Reservations: React.FC = () => {
   };
 
   const handleStatusChange = async (id: string, newStatus: string) => {
-    if (updateReservationStatus) {
-      await updateReservationStatus(id, newStatus);
-    }
+    await updateReservationStatus(id, newStatus);
   };
 
   return (
@@ -381,8 +379,8 @@ const Reservations: React.FC = () => {
                       <CardHeader>
                         <CardTitle className="flex items-center justify-between">
                           <span>Réservation #{reservation.id.substring(0, 8)}</span>
-                          <Badge className={reservationStatusColors[reservation.status] || reservationStatusColors[reservation.statut || '']}>
-                            {reservation.statut || reservation.status}
+                          <Badge className={reservationStatusColors[reservation.statut] || ''}>
+                            {reservation.statut}
                           </Badge>
                         </CardTitle>
                         <CardDescription>{dateTime.date}</CardDescription>
@@ -408,18 +406,13 @@ const Reservations: React.FC = () => {
                           variant="outline" 
                           size="sm"
                           onClick={() => {
-                            if (reservation.status === 'confirmed' || reservation.status === 'confirmée' ||
-                                reservation.statut === 'confirmed' || reservation.statut === 'confirmée') {
+                            if (reservation.statut === 'confirmée') {
                               handleStatusChange(reservation.id, 'cancelled');
                             }
                           }}
-                          disabled={reservation.status !== 'confirmed' && 
-                                   reservation.status !== 'confirmée' && 
-                                   reservation.statut !== 'confirmed' && 
-                                   reservation.statut !== 'confirmée'}
+                          disabled={reservation.statut !== 'confirmée'}
                         >
-                          {(reservation.status === 'confirmed' || reservation.status === 'confirmée' ||
-                            reservation.statut === 'confirmed' || reservation.statut === 'confirmée') ? 'Annuler' : 'Voir détails'}
+                          {reservation.statut === 'confirmée' ? 'Annuler' : 'Voir détails'}
                         </Button>
                         {reservation.devis_id && (
                           <Button size="sm">
@@ -473,10 +466,10 @@ const Reservations: React.FC = () => {
                                 <TableCell>{reservation.id.substring(0, 8)}</TableCell>
                                 <TableCell>{dateTime.date}</TableCell>
                                 <TableCell>{dateTime.time}</TableCell>
-                                <TableCell>{reservation.utilisateur_id || reservation.user_id}</TableCell>
+                                <TableCell>{reservation.utilisateur_id}</TableCell>
                                 <TableCell>
-                                  <Badge className={reservationStatusColors[reservation.status] || reservationStatusColors[reservation.statut || '']}>
-                                    {reservation.statut || reservation.status}
+                                  <Badge className={reservationStatusColors[reservation.statut] || ''}>
+                                    {reservation.statut}
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
@@ -484,10 +477,7 @@ const Reservations: React.FC = () => {
                                     <Button variant="outline" size="sm">
                                       Détails
                                     </Button>
-                                    {(reservation.status !== 'confirmed' && 
-                                      reservation.status !== 'confirmée' && 
-                                      reservation.statut !== 'confirmed' && 
-                                      reservation.statut !== 'confirmée') ? (
+                                    {reservation.statut !== 'confirmée' ? (
                                       <Button 
                                         variant="outline" 
                                         size="sm"

@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { User, Role, UserStatus } from '@/types';
+import { User, Role, UserStatus, Reservation as ReservationType } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 
@@ -26,12 +25,12 @@ export interface ReservationWithDetails extends Reservation {
   confirmation_video_effectuee?: boolean;
   devis_id?: string;
   // Add these to match the expected interface in other files
-  utilisateur_id?: string;
-  date_reservation?: string;
-  heure_debut?: string;
-  heure_fin?: string;
-  statut?: string;
-  type_utilisateur?: UserStatus;
+  utilisateur_id: string;
+  date_reservation: string;
+  heure_debut: string;
+  heure_fin: string;
+  statut: string;
+  type_utilisateur: UserStatus;
 }
 
 export interface Room {
@@ -247,7 +246,7 @@ export const useReservations = (): UseReservationsReturn => {
         return {
           ...reservation,
           user_name: userName,
-          user_email: 'user@example.com', // Default email since it might not exist in profiles table
+          user_email: user?.first_name ? `${user.first_name.toLowerCase()}.${user.last_name?.toLowerCase() || ''}@example.com` : 'user@example.com',
           room_name: room?.name || 'Salle inconnue',
           user_status: (user?.role as UserStatus) || 'PERENCO',
           confirmation_video_effectuee: false, // Default value
@@ -265,6 +264,7 @@ export const useReservations = (): UseReservationsReturn => {
       console.error('Error enhancing reservations with details:', error);
       return reservations.map(r => ({
         ...r,
+        user_email: 'user@example.com',
         confirmation_video_effectuee: false,
         devis_id: null,
         utilisateur_id: r.user_id,
@@ -296,6 +296,8 @@ export const useReservations = (): UseReservationsReturn => {
       setMyReservations([]);
     }
   };
+
+  // ... keep existing code (timeSlots updating function)
 
   const updateTimeSlots = async () => {
     if (!selectedRoom || !selectedDate) return;
@@ -552,7 +554,6 @@ export const useReservations = (): UseReservationsReturn => {
     }
   };
 
-  // Implement these required functions for Reservations.tsx
   const updateReservationStatus = async (id: string, status: string) => {
     setIsUpdating(true);
     try {
@@ -673,7 +674,6 @@ export const useReservations = (): UseReservationsReturn => {
     cancelReservation,
     fetchReservations,
     fetchRooms,
-    // Include these to match the expected interface
     updateReservationStatus,
     getAvailableSlots,
     getEquipments
