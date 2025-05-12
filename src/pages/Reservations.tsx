@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from '@/hooks/use-toast';
 import { format, addDays, parse } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { CalendarRange, Clock, CreditCard, FileText, Info, Loader2, RefreshCw, Video, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, CreditCard, FileText, Info, Loader2, RefreshCw, Video, X } from 'lucide-react';
 
 const Reservations: React.FC = () => {
   const { user } = useAuth();
@@ -31,7 +31,9 @@ const Reservations: React.FC = () => {
     createReservation, 
     updateReservationStatus, 
     getAvailableSlots, 
-    getEquipments 
+    getEquipments,
+    rooms,
+    fetchRooms 
   } = useReservations();
   
   const { generateDevis } = usePayments();
@@ -51,6 +53,16 @@ const Reservations: React.FC = () => {
       setEquipments(getEquipments());
     }
   }, [getEquipments]);
+
+  // Initialize data on component mount
+  useEffect(() => {
+    const initializeData = async () => {
+      await fetchRooms();
+      await fetchReservations();
+    };
+    
+    initializeData();
+  }, []);
 
   const isAdmin = user?.role === 'admin';
   const isManager = user?.role === 'manager';
@@ -120,20 +132,21 @@ const Reservations: React.FC = () => {
     setCreateLoading(true);
     
     try {
-      // Format date
-      const dateString = format(selectedDate, 'yyyy-MM-dd');
+      // Get the first room if available
+      const roomId = rooms.length > 0 ? rooms[0].id : "room-1";
       
       console.log("Submitting reservation:", {
-        date: dateString,
+        date: selectedDate,
         timeSlot: selectedSlot,
-        equipments: selectedEquipments
+        equipments: selectedEquipments,
+        room_id: roomId
       });
       
       // Create reservation with the updated interface
       const success = await createReservation({
         title: `Réservation du ${format(selectedDate, 'dd/MM/yyyy')}`,
         description: "Réservation créée via le formulaire",
-        room_id: "room-1", // Default room ID
+        room_id: roomId,
         date: selectedDate,
         start_time: selectedSlot.start,
         end_time: selectedSlot.end,
@@ -466,7 +479,7 @@ const Reservations: React.FC = () => {
                                 <TableCell>{reservation.id.substring(0, 8)}</TableCell>
                                 <TableCell>{dateTime.date}</TableCell>
                                 <TableCell>{dateTime.time}</TableCell>
-                                <TableCell>{reservation.utilisateur_id}</TableCell>
+                                <TableCell>{reservation.user_name || reservation.utilisateur_id}</TableCell>
                                 <TableCell>
                                   <Badge className={reservationStatusColors[reservation.statut] || ''}>
                                     {reservation.statut}

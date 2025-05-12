@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Role, UserStatus, Reservation as ReservationType } from '@/types';
@@ -242,6 +243,10 @@ export const useReservations = (): UseReservationsReturn => {
         const room = roomsData?.find(r => r.id === reservation.room_id);
         const userName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Inconnu';
         
+        // Format start and end time into hour:minute
+        const startHour = new Date(reservation.start_time).toTimeString().substring(0, 5);
+        const endHour = new Date(reservation.end_time).toTimeString().substring(0, 5);
+        
         // Add mapped fields for compatibility with the rest of the codebase
         return {
           ...reservation,
@@ -254,26 +259,32 @@ export const useReservations = (): UseReservationsReturn => {
           // Map to the expected interface fields
           utilisateur_id: reservation.user_id,
           date_reservation: reservation.start_time.split('T')[0],
-          heure_debut: reservation.start_time.split('T')[1].substring(0, 5),
-          heure_fin: reservation.end_time.split('T')[1].substring(0, 5),
+          heure_debut: startHour,
+          heure_fin: endHour,
           statut: mapStatus(reservation.status),
           type_utilisateur: (user?.role as UserStatus) || 'PERENCO'
         };
       });
     } catch (error) {
       console.error('Error enhancing reservations with details:', error);
-      return reservations.map(r => ({
-        ...r,
-        user_email: 'user@example.com',
-        confirmation_video_effectuee: false,
-        devis_id: null,
-        utilisateur_id: r.user_id,
-        date_reservation: r.start_time.split('T')[0],
-        heure_debut: r.start_time.split('T')[1].substring(0, 5),
-        heure_fin: r.end_time.split('T')[1].substring(0, 5),
-        statut: mapStatus(r.status),
-        type_utilisateur: 'PERENCO' as UserStatus
-      }));
+      return reservations.map(r => {
+        // Format start and end time into hour:minute
+        const startHour = new Date(r.start_time).toTimeString().substring(0, 5);
+        const endHour = new Date(r.end_time).toTimeString().substring(0, 5);
+        
+        return {
+          ...r,
+          user_email: 'user@example.com',
+          confirmation_video_effectuee: false,
+          devis_id: null,
+          utilisateur_id: r.user_id,
+          date_reservation: r.start_time.split('T')[0],
+          heure_debut: startHour,
+          heure_fin: endHour,
+          statut: mapStatus(r.status),
+          type_utilisateur: 'PERENCO' as UserStatus
+        }
+      });
     }
   };
 
@@ -421,10 +432,10 @@ export const useReservations = (): UseReservationsReturn => {
       if (error) {
         console.error("Error creating reservation:", error);
         
-        // Si erreur, on simule tout de même une création réussie pour la démo
+        // Even if there's an error with Supabase, we'll create a local reservation for demo purposes
         console.log("Using fallback for demo purposes - simulating successful reservation");
         
-        // Création d'une "fausse" réservation pour la démo
+        // Create a mock reservation for demonstration
         const mockReservation: ReservationWithDetails = {
           id: `mock-${Date.now()}`,
           title: formData.title,
@@ -450,7 +461,7 @@ export const useReservations = (): UseReservationsReturn => {
           type_utilisateur: user.statut
         };
         
-        // On ajoute cette réservation aux états locaux
+        // Add the mock reservation to local state
         setReservations(prev => [...prev, mockReservation]);
         setMyReservations(prev => [...prev, mockReservation]);
         
@@ -459,8 +470,8 @@ export const useReservations = (): UseReservationsReturn => {
           description: "Votre réservation a été créée avec succès",
         });
         
-        // On met à jour les créneaux horaires
-        updateTimeSlots();
+        // Update time slots to reflect the new reservation
+        await updateTimeSlots();
         
         setIsCreating(false);
         return true;
@@ -496,7 +507,7 @@ export const useReservations = (): UseReservationsReturn => {
       });
       
       // Update time slots after creation
-      updateTimeSlots();
+      await updateTimeSlots();
       
       return true;
     } catch (error: any) {
